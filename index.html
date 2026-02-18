@@ -1,0 +1,2035 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Jurnal KAIH - SMPN 7 Dedai</title>
+    
+    <!-- 1. Pustaka React & Babel -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- 2. Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- 3. Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+    <style>
+        /* Mengunci background utama browser */
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background-color: #cbd5e1; /* Warna latar belakang desktop (abu-abu) */
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        /* Container utama yang mensimulasikan layar HP */
+        #root {
+            width: 100%;
+            max-width: 480px; /* Lebar maksimal menyerupai HP */
+            background-color: #f8fafc;
+            min-height: 100vh;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); /* Bayangan agar timbul */
+            position: relative;
+            overflow-x: hidden; /* Mencegah geser samping */
+        }
+
+        .animate-fade-in-up { animation: fadeInUp 0.5s ease-out; }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Custom Scrollbar for list */
+        .student-list::-webkit-scrollbar { width: 6px; }
+        .student-list::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 4px; }
+        
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+    // --- LOGIKA KONFIGURASI FIREBASE ---
+        let firebaseConfig = null;
+        let isConfigValid = false;
+
+        if (typeof __firebase_config !== 'undefined') {
+            try {
+                firebaseConfig = JSON.parse(__firebase_config);
+                isConfigValid = true;
+            } catch (e) {
+                console.error("Gagal parsing auto-config", e);
+            }
+        }
+
+        if (!isConfigValid) {
+            // Config Proyek Anda
+            firebaseConfig = {
+                apiKey: "AIzaSyBPyQ7VvSnumxYWm3-TL8t_3qru15eX7fA",
+                authDomain: "jurnal-smpn7-dedai.firebaseapp.com",
+                projectId: "jurnal-smpn7-dedai",
+                storageBucket: "jurnal-smpn7-dedai.firebasestorage.app",
+                messagingSenderId: "342279014464",
+                appId: "1:342279014464:web:51209b7c49675b2715b7a5",
+                measurementId: "G-GX3V4JJ53W"
+            };
+            
+            if (firebaseConfig.apiKey && !firebaseConfig.apiKey.includes("GANTI_DENGAN")) {
+                isConfigValid = true;
+            }
+        }
+
+        let auth, db;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'smpn7-dedai';
+        
+        // --- KONFIGURASI GOOGLE SHEET ---
+        const GOOGLE_SHEET_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx2iHHPbITCa3SOGDCPmPdM_w5Q9U3vfSPQ4r_n3HpeIN96631G3lHUhCgvdqlyPLZbpw/exec"; 
+
+        if (isConfigValid) {
+            if (!firebase.apps.length) {
+                firebase.initializeApp(firebaseConfig);
+            }
+            auth = firebase.auth();
+            db = firebase.firestore();
+        }
+
+    // --- DATA GURU & SISWA ---
+    
+        const TEACHERS = [
+            { id: 't_001', name: "M. Yusuf 'Ubaidilah, S.Pd", username: 'guru001', password: '123456', classId: '7A' },
+            { id: 't_002', name: "Rosi Evangelista Dewi, S.Pd", username: 'guru002', password: '123456', classId: '7A, 7B, 7C, 7D, 7E, 7F' },
+            { id: 't_003', name: "Juli Setiyowati, S.Pd", username: 'guru003', password: '123456', classId: '7C' },
+            { id: 't_004', name: "Dra. Rufiana Hidayati", username: 'guru004', password: '123456', classId: '7D' },
+            { id: 't_005', name: "Siti Nursabatun,S.Pd", username: 'guru005', password: '123456', classId: '7E' },
+            { id: 't_006', name: "Amroji,S.Pd.", username: 'guru006', password: '123456', classId: '7F' },
+            { id: 't_007', name: "Pendik, S.Pd", username: 'guru007', password: '123456', classId: '8A' },
+            { id: 't_008', name: "Sri Sunarti,S.Pd", username: 'guru008', password: '123456', classId: '8B' },
+            { id: 't_009', name: "Heny Mufidah, S.Pd.I", username: 'guru009', password: '123456', classId: '8C' },
+            { id: 't_010', name: "Fathul Nur Wahidah, S.Pd", username: 'guru010', password: '123456', classId: '8D' },
+            { id: 't_011', name: "Desi Rahma Pratiwi, S.Pd", username: 'guru011', password: '123456', classId: '8E' },
+            { id: 't_012', name: "Dian Kiswarini,S.Pd", username: 'guru012', password: '123456', classId: '7A, 7B, 7C, 7D, 7E, 7F, 8A, 8B, 8C, 8D, 8E, 8F, 8G, 8H, 9A, 9B, 9C, 9D, 9E, 9F, 9G' },
+            { id: 't_013', name: "Hanifah Nur Pratiwi, S.Pd", username: 'guru013', password: '123456', classId: '8G' },
+            { id: 't_014', name: "Puji Hastuti,S.Pd.", username: 'guru014', password: '123456', classId: '8H' },
+            { id: 't_015', name: "Aris Joko Riyanto,St.", username: 'guru015', password: '123456', classId: '9A' },
+            { id: 't_016', name: "Ajeng Ifana, S.Pd", username: 'guru016', password: '123456', classId: '9A, 9B, 9C, 9D, 9E, 9F, 9G' },
+            { id: 't_017', name: "Astutiyani,S.Pd.", username: 'guru017', password: '123456', classId: '9C' },
+            { id: 't_018', name: "Desi Nia Setiani, S.Pd", username: 'guru018', password: '123456', classId: '9D' },
+            { id: 't_019', name: "Oktaria Kusuma Wardani,S.Pd", username: 'guru019', password: '123456', classId: '9E' },
+            { id: 't_020', name: "Iriene Fitria Magdalena, S.Pd", username: 'guru020', password: '123456', classId: '9F' },
+            { id: 't_021', name: "Siti Novitasari,S.Pd.", username: 'guru021', password: '123456', classId: '9G' },
+            { id: 't_022', name: "Dimas Yatmitraningsih, S.Pd", username: 'guru022', password: '123456', classId: '7F' },
+            { id: 't_023', name: "Siti Lestari, S.Pd", username: 'guru023', password: '123456', classId: '7A, 7B, 7C, 7D, 7E, 7F, 8A, 8B, 8C, 8D, 8E, 8F, 8G, 8H, 9A, 9B, 9C, 9D, 9E, 9F, 9G' },
+            { id: 't_024', name: "Dina Jamil Laila, S.Si", username: 'guru024', password: '123456', classId: '7A, 7B, 7C, 7D, 7E, 7F, 8A, 8B, 8C, 8D, 8E, 8F, 8G, 8H, 9A, 9B, 9C, 9D, 9E, 9F, 9G' },
+            { id: 't_025', name: "Anies Ira Susanti, S.Pd", username: 'guru025', password: '123456', classId: '7A, 7B, 7C, 7D, 7E, 7F, 8A, 8B, 8C, 8D, 8E, 8F, 8G, 8H, 9A, 9B, 9C, 9D, 9E, 9F, 9G' },
+            { id: 't_026', name: "Sudjani, S.Pd", username: 'guru026', password: '123456', classId: '7A, 7B, 7C, 7D, 7E, 7F, 8A, 8B, 8C, 8D, 8E, 8F, 8G, 8H, 9A, 9B, 9C, 9D, 9E, 9F, 9G' },
+            { id: 't_027', name: "Diana Puspa Wardhani, S.Pd", username: 'guru027', password: '123456', classId: '7A, 7B, 7C, 7D, 7E, 7F, 8A, 8B, 8C, 8D, 8E, 8F, 8G, 8H, 9A, 9B, 9C, 9D, 9E, 9F, 9G' },
+            { id: 't_028', name: "Ma'ruf Chondro Wasisto, S.Pd", username: 'guru028', password: '123456', classId: '7A, 7B, 7C, 7D, 7E, 7F, 8A, 8B, 8C, 8D, 8E, 8F, 8G, 8H, 9A, 9B, 9C, 9D, 9E, 9F, 9G' },
+            { id: 't_029', name: "Hari Harsoyo, S.Pd", username: 'guru029', password: '123456', classId: '7A, 7B, 7C, 7D, 7E, 7F, 8A, 8B, 8C, 8D, 8E, 8F, 8G, 8H, 9A, 9B, 9C, 9D, 9E, 9F, 9G' },
+            { id: 't_030', name: "Agung Hari Mukti, S.Pd", username: 'guru030', password: '123456', classId: '7A, 7B, 7C, 7D, 7E, 7F, 8A, 8B, 8C, 8D, 8E, 8F, 8G, 8H, 9A, 9B, 9C, 9D, 9E, 9F, 9G' }
+        ];
+
+        const ALL_STUDENTS = [
+            // ... (Data Siswa Sama) ...
+            // KELAS 7A
+            { id: 's_7A_1', name: 'Aira Khalifah Widyawati', classId: '7A' },
+            { id: 's_7A_2', name: 'Airil Wahyu Pratama', classId: '7A' },
+            { id: 's_7A_3', name: 'Aisya Fadilla Putri', classId: '7A' },
+            { id: 's_7A_4', name: 'Andrian Dandy Rendrawan', classId: '7A' },
+            { id: 's_7A_5', name: 'Anggun Gladys Oktavia Nova', classId: '7A' },
+            { id: 's_7A_6', name: 'Arya Pangestu Purbawisesa', classId: '7A' },
+            { id: 's_7A_7', name: 'Aufar Mufaim', classId: '7A' },
+            { id: 's_7A_8', name: 'Axel Franda Endjie Shellomitha', classId: '7A' },
+            { id: 's_7A_9', name: 'Bagaskara Candra Kartika', classId: '7A' },
+            { id: 's_7A_10', name: 'Darma Arif Maulana', classId: '7A' },
+            { id: 's_7A_11', name: 'Diska Aqila Azzahra', classId: '7A' },
+            { id: 's_7A_12', name: 'Gesyka Zahra Martian', classId: '7A' },
+            { id: 's_7A_13', name: 'Giferdy Richard Brilliant Pratama', classId: '7A' },
+            { id: 's_7A_14', name: 'Hakesha Arzikiandra', classId: '7A' },
+            { id: 's_7A_15', name: 'Nadilla Arum Fitria', classId: '7A' },
+            { id: 's_7A_16', name: 'Naila Ziqri Lapian', classId: '7A' },
+            { id: 's_7A_17', name: 'Natasya Ardia Oktavia Putri', classId: '7A' },
+            { id: 's_7A_18', name: 'Nurul Sifana Auralia', classId: '7A' },
+            { id: 's_7A_19', name: 'Piuz Achasia Sanjaya', classId: '7A' },
+            { id: 's_7A_20', name: 'Queenera Ayasha Zee Lovely', classId: '7A' },
+            { id: 's_7A_21', name: 'Reivan Valdino Nababan', classId: '7A' },
+            { id: 's_7A_22', name: 'Rheihan Dewangga Bagus Praditya', classId: '7A' },
+            { id: 's_7A_23', name: 'Rindiantika Nayla Putri Raharjo', classId: '7A' },
+            { id: 's_7A_24', name: 'Robin Hutama Putra', classId: '7A' },
+            { id: 's_7A_25', name: 'Salsabilla Berliana Franchisca', classId: '7A' },
+            { id: 's_7A_26', name: 'Stanislau Araujo Sousa Jong', classId: '7A' },
+            { id: 's_7A_27', name: 'Winery Dwi Nuraini', classId: '7A' },
+            { id: 's_7A_28', name: 'Yasa Alda Carika', classId: '7A' },
+            { id: 's_7A_29', name: 'Yovan Aqilla Asyam Saputra', classId: '7A' },
+            { id: 's_7A_30', name: 'Zahira Almaira Nur Fajrin', classId: '7A' },
+            
+            // KELAS 7B
+            { id: 's_7B_1', name: 'Ajeng Resdya Putri', classId: '7B' },
+            { id: 's_7B_2', name: 'Alfian Bahiaqi Raharjo', classId: '7B' },
+            { id: 's_7B_3', name: 'Alzena Akhyar Maritza', classId: '7B' },
+            { id: 's_7B_4', name: 'Anisa Putri Katan', classId: '7B' },
+            { id: 's_7B_5', name: 'Arza Aqila Prayoga Putra', classId: '7B' },
+            { id: 's_7B_6', name: 'As Syifa Martha Arindya', classId: '7B' },
+            { id: 's_7B_7', name: 'Bintaro Dian Saputra', classId: '7B' },
+            { id: 's_7B_8', name: 'Brenden Galang Putra Frastya', classId: '7B' },
+            { id: 's_7B_9', name: 'Carinabalqis Elysia Sutopo', classId: '7B' },
+            { id: 's_7B_10', name: 'Danesh Yuka Hafizal-Farabi', classId: '7B' },
+            { id: 's_7B_11', name: 'Dwi Arya Saputra', classId: '7B' },
+            { id: 's_7B_12', name: 'Elisia Nur Fauziyah', classId: '7B' },
+            { id: 's_7B_13', name: 'Erhans Rajendra Yukitama', classId: '7B' },
+            { id: 's_7B_14', name: 'Fabian Zafran Agatha', classId: '7B' },
+            { id: 's_7B_15', name: 'Imam Aqilunnadiv Lapian', classId: '7B' },
+            { id: 's_7B_16', name: 'Irvano Yogha Pamungkas', classId: '7B' },
+            { id: 's_7B_17', name: "Mas'udiyah Rizqi Handreyanti", classId: '7B' },
+            { id: 's_7B_18', name: 'Muhammad Fathur Risdianto', classId: '7B' },
+            { id: 's_7B_19', name: 'Nabila Okta Dzakira', classId: '7B' },
+            { id: 's_7B_20', name: 'Nadea Alin Vinanda', classId: '7B' },
+            { id: 's_7B_21', name: 'Nafisya Ayuning Wardhana', classId: '7B' },
+            { id: 's_7B_22', name: 'Nehemia Yesua Tuyu', classId: '7B' },
+            { id: 's_7B_23', name: 'Rachel Ayodya Putri Poerwanto', classId: '7B' },
+            { id: 's_7B_24', name: 'Raisya Aqilla', classId: '7B' },
+            { id: 's_7B_25', name: 'Salwa Turayya Putri Gunawan', classId: '7B' },
+            { id: 's_7B_26', name: 'Shaqina Mustika Dewi Shandora', classId: '7B' },
+            { id: 's_7B_27', name: 'Vianza Alvaro Aditya Putra', classId: '7B' },
+            { id: 's_7B_28', name: 'Yasmin Wijayanti Kusuma', classId: '7B' },
+            { id: 's_7B_29', name: 'Yelzya Felly Santoso', classId: '7B' },
+
+            // KELAS 7C
+            { id: 's_7C_1', name: 'Alexander Bima Pahlawan Ariasyah', classId: '7C' },
+            { id: 's_7C_2', name: 'Alfaro Gavriel Parianta', classId: '7C' },
+            { id: 's_7C_3', name: 'Alfath Nur Makruf', classId: '7C' },
+            { id: 's_7C_4', name: 'Amaylia Haiwah Nuryahya', classId: '7C' },
+            { id: 's_7C_5', name: 'Anastasya Desti Adya Mawarni', classId: '7C' },
+            { id: 's_7C_6', name: 'Arya Eka Syahputra', classId: '7C' },
+            { id: 's_7C_7', name: 'Aska Broery Alfaro', classId: '7C' },
+            { id: 's_7C_8', name: 'Avika Putri Shaleha', classId: '7C' },
+            { id: 's_7C_9', name: 'Azzam Fadhil Abyan', classId: '7C' },
+            { id: 's_7C_10', name: 'Bagas Ali Cakradara', classId: '7C' },
+            { id: 's_7C_11', name: 'Basyariyah Abdillah', classId: '7C' },
+            { id: 's_7C_12', name: 'Citra Puspita Sari', classId: '7C' },
+            { id: 's_7C_13', name: 'Dirgahayu Danang Satya', classId: '7C' },
+            { id: 's_7C_14', name: 'Ganendra Ridwan Junandira', classId: '7C' },
+            { id: 's_7C_15', name: 'Gilbran Hasbiansyah Sutatmo', classId: '7C' },
+            { id: 's_7C_16', name: 'Katiftha Suraiya Abida Dianto', classId: '7C' },
+            { id: 's_7C_17', name: 'Meysha Trisha Azzahra', classId: '7C' },
+            { id: 's_7C_18', name: 'Muhamad Nur Aditya', classId: '7C' },
+            { id: 's_7C_19', name: 'Nadzwa Dwi Nur Auliya', classId: '7C' },
+            { id: 's_7C_20', name: 'Naura Hasna Annida', classId: '7C' },
+            { id: 's_7C_21', name: 'Nova Rizqi Arya Pratama', classId: '7C' },
+            { id: 's_7C_22', name: 'Raysha Zahra Kirani', classId: '7C' },
+            { id: 's_7C_23', name: 'Sabrina Mawadatus Sholihah', classId: '7C' },
+            { id: 's_7C_24', name: 'Salma Nadine Dalila', classId: '7C' },
+            { id: 's_7C_25', name: 'Syifa Rizky', classId: '7C' },
+            { id: 's_7C_26', name: 'Tyaga Wijayanti', classId: '7C' },
+            { id: 's_7C_27', name: 'Yuanita Azka Indri Kusuma Wardani', classId: '7C' },
+            { id: 's_7C_28', name: 'Zivana Twelvy Rivera', classId: '7C' },
+            { id: 's_7C_29', name: 'Zulfan Andika Atmaja', classId: '7C' },
+
+            // KELAS 7D
+            { id: 's_7D_1', name: 'Agustian Dwi Chandra', classId: '7D' },
+            { id: 's_7D_2', name: 'Alfath Maulana Effendi', classId: '7D' },
+            { id: 's_7D_3', name: 'Allesha Naila Nur Shaliqa', classId: '7D' },
+            { id: 's_7D_4', name: 'Alvin Eka Saputra', classId: '7D' },
+            { id: 's_7D_5', name: 'Arya Putra', classId: '7D' },
+            { id: 's_7D_6', name: 'Azka Athaya Rizqullah', classId: '7D' },
+            { id: 's_7D_7', name: 'Cantika Khanza Arkadevi Kristyanto', classId: '7D' },
+            { id: 's_7D_8', name: 'Dhafira Putri Auliya Zalfa', classId: '7D' },
+            { id: 's_7D_9', name: 'Fahezzam Nadhif Andrianto', classId: '7D' },
+            { id: 's_7D_10', name: 'Faiq Najair Isam', classId: '7D' },
+            { id: 's_7D_11', name: 'Gentar Galang Ramadhan', classId: '7D' },
+            { id: 's_7D_12', name: 'Hashifah Naufah Hidayat', classId: '7D' },
+            { id: 's_7D_13', name: 'Jessica Putri Yemico', classId: '7D' },
+            { id: 's_7D_14', name: 'Kalea Anindya Danastri', classId: '7D' },
+            { id: 's_7D_15', name: 'Kurnia Ramadani', classId: '7D' },
+            { id: 's_7D_16', name: 'Muhammad Cielo Maisyandra', classId: '7D' },
+            { id: 's_7D_17', name: 'Muhammad Gibraltar Q.Ura', classId: '7D' },
+            { id: 's_7D_18', name: 'Mutiara Nur Maulida', classId: '7D' },
+            { id: 's_7D_19', name: 'Nadia Calista Putri', classId: '7D' },
+            { id: 's_7D_20', name: 'Naga Syah Putra Dewa', classId: '7D' },
+            { id: 's_7D_21', name: 'Natasya Putri', classId: '7D' },
+            { id: 's_7D_22', name: 'Raka Cesar Saputra', classId: '7D' },
+            { id: 's_7D_23', name: 'Raquel Zalfa Lathifarika Syakieb', classId: '7D' },
+            { id: 's_7D_24', name: 'Rosyid Erlika Pratama', classId: '7D' },
+            { id: 's_7D_25', name: 'Safira Deswita Putri', classId: '7D' },
+            { id: 's_7D_26', name: 'Sahfa Fitria Rohma', classId: '7D' },
+            { id: 's_7D_27', name: 'Santi Hayu Kurniawati', classId: '7D' },
+            { id: 's_7D_28', name: 'Savirha Wafha Agustina Muazara Putri', classId: '7D' },
+            { id: 's_7D_29', name: 'Vanessa Jayanty', classId: '7D' },
+
+            // KELAS 7E
+            { id: 's_7E_1', name: 'Ade Farreleza Sakti', classId: '7E' },
+            { id: 's_7E_2', name: 'Alya Dea Larasati', classId: '7E' },
+            { id: 's_7E_3', name: 'Amanda Aulia Putri', classId: '7E' },
+            { id: 's_7E_4', name: 'Arka Bima Prasisto', classId: '7E' },
+            { id: 's_7E_5', name: 'Aska Javier Rafif', classId: '7E' },
+            { id: 's_7E_6', name: 'Azzanno Muhammad Tristianno', classId: '7E' },
+            { id: 's_7E_7', name: 'Erlangga Luqman Hakim', classId: '7E' },
+            { id: 's_7E_8', name: 'Fauzan Satrya Akbaroha', classId: '7E' },
+            { id: 's_7E_9', name: 'Favian Arva Pradika', classId: '7E' },
+            { id: 's_7E_10', name: 'Febrian Putra Pamungkas', classId: '7E' },
+            { id: 's_7E_11', name: 'Ferdinand Rafael Allexsi', classId: '7E' },
+            { id: 's_7E_12', name: 'Firzzy Alfaru Riansyah Putra', classId: '7E' },
+            { id: 's_7E_13', name: 'Hazim Nabil Raqilla', classId: '7E' },
+            { id: 's_7E_14', name: 'Jelsy Wahyu Shavea', classId: '7E' },
+            { id: 's_7E_15', name: 'Kanaya Tri Pameling', classId: '7E' },
+            { id: 's_7E_16', name: 'Karenina Islamadina Andriani', classId: '7E' },
+            { id: 's_7E_17', name: 'Kheandra Azka Nugraha', classId: '7E' },
+            { id: 's_7E_18', name: 'Khrisna Bayu Nugroho', classId: '7E' },
+            { id: 's_7E_19', name: 'Meyra Putri Vanesya', classId: '7E' },
+            { id: 's_7E_20', name: 'Muhamadd Irdho Denova Setyawan', classId: '7E' },
+            { id: 's_7E_21', name: 'Nabila Al Fatun Nisa Pratama', classId: '7E' },
+            { id: 's_7E_22', name: 'Nasya Nur Aqiila', classId: '7E' },
+            { id: 's_7E_23', name: 'Pramitha Ayudya Privadani', classId: '7E' },
+            { id: 's_7E_24', name: 'Rivaldo Ashari Triantoro', classId: '7E' },
+            { id: 's_7E_25', name: 'Sekar Kumala Ratih', classId: '7E' },
+            { id: 's_7E_26', name: 'Shelviana Putrie Larasaty', classId: '7E' },
+            { id: 's_7E_27', name: 'Syarif Nour Hidayat', classId: '7E' },
+            { id: 's_7E_28', name: 'Tazya Anjelina Saputri', classId: '7E' },
+            { id: 's_7E_29', name: 'Yolanda Amellya', classId: '7E' },
+            { id: 's_7E_30', name: 'Zefanya Aletha Putri', classId: '7E' },
+
+            // KELAS 7F
+            { id: 's_7F_1', name: 'Afiqa Putri Agustina', classId: '7F' },
+            { id: 's_7F_2', name: 'Anaya Cintya Ashalina', classId: '7F' },
+            { id: 's_7F_3', name: 'Andita Prasetyaningrum', classId: '7F' },
+            { id: 's_7F_4', name: 'Anya Faizaningtyas', classId: '7F' },
+            { id: 's_7F_5', name: 'Aqeera Dahayu Amorita Azzah', classId: '7F' },
+            { id: 's_7F_6', name: 'Athalia Violeta Wintoro', classId: '7F' },
+            { id: 's_7F_7', name: 'Azahra Kirana Putri', classId: '7F' },
+            { id: 's_7F_8', name: 'Azka Dama Abhipraya', classId: '7F' },
+            { id: 's_7F_9', name: 'Brian Rizky Islami', classId: '7F' },
+            { id: 's_7F_10', name: 'Chelsia Amelia Ferda Putri', classId: '7F' },
+            { id: 's_7F_11', name: 'Dafi Nur Firmansyah', classId: '7F' },
+            { id: 's_7F_12', name: 'Dinda Alya Ilma Nurrachma', classId: '7F' },
+            { id: 's_7F_13', name: 'Dion Majesta Alvaro Narotama', classId: '7F' },
+            { id: 's_7F_14', name: 'Fabian Apta Yudha Nirbiantara', classId: '7F' },
+            { id: 's_7F_15', name: 'Fadila Aviqa', classId: '7F' },
+            { id: 's_7F_16', name: 'Faiz Daffa Alfarozi', classId: '7F' },
+            { id: 's_7F_17', name: 'Fakhira Cayadewi', classId: '7F' },
+            { id: 's_7F_18', name: 'Florence Syalom Janeeta Efendi', classId: '7F' },
+            { id: 's_7F_19', name: 'Griselda Evelyn Quina Putri Rafflesia', classId: '7F' },
+            { id: 's_7F_20', name: 'Hanafi Eka Putra', classId: '7F' },
+            { id: 's_7F_21', name: 'Jufano Puji Laksana Putra', classId: '7F' },
+            { id: 's_7F_22', name: 'Kevin Yuananda Sartiko', classId: '7F' },
+            { id: 's_7F_23', name: 'Pradipta', classId: '7F' },
+            { id: 's_7F_24', name: 'Regina Putri Alhamdani', classId: '7F' },
+            { id: 's_7F_25', name: 'Risel Prihatmoko', classId: '7F' },
+            { id: 's_7F_26', name: 'Rizky Wildhan Fanryansyah', classId: '7F' },
+            { id: 's_7F_27', name: 'Shafira Linda Rahmadani', classId: '7F' },
+            { id: 's_7F_28', name: 'Widiayu Lintang Putri Kirana', classId: '7F' },
+            { id: 's_7F_29', name: 'Yodha Arya Wicaksono', classId: '7F' },
+            { id: 's_7F_30', name: 'Zaldi Rahmat Juniar', classId: '7F' },
+
+            // KELAS 8A
+            { id: 's_8A_1', name: 'Achmad Zaki Kaisar', classId: '8A' },
+            { id: 's_8A_2', name: 'Agus Wisnu Romadhon', classId: '8A' },
+            { id: 's_8A_3', name: 'Ahmad Dani', classId: '8A' },
+            { id: 's_8A_4', name: 'Ailsa Salsabilla Aurellia Putri Dias', classId: '8A' },
+            { id: 's_8A_5', name: 'Alfi Zidane Firdaus', classId: '8A' },
+            { id: 's_8A_6', name: 'Benedicta Yulindya Queensha Prihatantyo', classId: '8A' },
+            { id: 's_8A_7', name: 'Ceysla Putra Wibawa Gebze', classId: '8A' },
+            { id: 's_8A_8', name: 'Danurwenda Putra Prastawa', classId: '8A' },
+            { id: 's_8A_9', name: 'Devita Noviyanti', classId: '8A' },
+            { id: 's_8A_10', name: 'Dewi Lestari', classId: '8A' },
+            { id: 's_8A_11', name: 'Dhevia Febriana Safitri', classId: '8A' },
+            { id: 's_8A_12', name: 'Dian Fajri Sundawa', classId: '8A' },
+            { id: 's_8A_13', name: 'Dina Novika Sari', classId: '8A' },
+            { id: 's_8A_14', name: 'Fadhil Reyga Fakhturozzy', classId: '8A' },
+            { id: 's_8A_15', name: 'Hawaina Efri Abdilah', classId: '8A' },
+            { id: 's_8A_16', name: 'Hernandes Nova', classId: '8A' },
+            { id: 's_8A_17', name: 'Hud Amar', classId: '8A' },
+            { id: 's_8A_18', name: 'Jannata Jibrillian Haryanto', classId: '8A' },
+            { id: 's_8A_19', name: 'Jennie Indah Nariswa', classId: '8A' },
+            { id: 's_8A_20', name: 'Khusna Nur Hidayah', classId: '8A' },
+            { id: 's_8A_21', name: 'Livinia Keysa Permata Kirana', classId: '8A' },
+            { id: 's_8A_22', name: 'Luthfi Choirunnisak', classId: '8A' },
+            { id: 's_8A_23', name: 'Mohammad Bintang Nalfian Ilman', classId: '8A' },
+            { id: 's_8A_24', name: 'Muhamad Arzend Rizky Ramadani', classId: '8A' },
+            { id: 's_8A_25', name: 'Naufal Rafli Putra Kurniawan', classId: '8A' },
+            { id: 's_8A_26', name: 'Rafael Adi Saputra', classId: '8A' },
+            { id: 's_8A_27', name: 'Sinar Meidanti Putri Pertiwi', classId: '8A' },
+            { id: 's_8A_28', name: 'Stevani Dwi Claudia Devin', classId: '8A' },
+            { id: 's_8A_29', name: 'Teresa Lebda Kalyana Putri', classId: '8A' },
+            { id: 's_8A_30', name: 'Vanesh Alfarizy Ramdhani', classId: '8A' },
+
+            // KELAS 8B
+            { id: 's_8B_1', name: 'Ainezya Khinanti Winarno', classId: '8B' },
+            { id: 's_8B_2', name: 'Airine Minerva', classId: '8B' },
+            { id: 's_8B_3', name: 'Anggie Sylvia Ramadhani', classId: '8B' },
+            { id: 's_8B_4', name: 'Arga Rizki Prayoga Putra', classId: '8B' },
+            { id: 's_8B_5', name: 'Arissa Putri Anggun Fernanda', classId: '8B' },
+            { id: 's_8B_6', name: 'Azhar Naafil Taufiqurrohman ', classId: '8B' },
+            { id: 's_8B_7', name: 'Bayu Tauhid Cahyo Setyo Utomo', classId: '8B' },
+            { id: 's_8B_8', name: 'Bintang Dwiva Michelwa', classId: '8B' },
+            { id: 's_8B_9', name: 'Callista Asmara Kansa', classId: '8B' },
+            { id: 's_8B_10', name: 'Cassy J Vio Descha Bening', classId: '8B' },
+            { id: 's_8B_11', name: 'Dafa Exelent Fadilah Afza', classId: '8B' },
+            { id: 's_8B_12', name: 'Dea Suci Revani', classId: '8B' },
+            { id: 's_8B_13', name: 'Fabella Clarista Zifara Riswanto', classId: '8B' },
+            { id: 's_8B_14', name: 'Fanesa Arninda', classId: '8B' },
+            { id: 's_8B_15', name: 'Firnanda Alviansyah', classId: '8B' },
+            { id: 's_8B_16', name: 'Izam Trizi Fahrudin Iman', classId: '8B' },
+            { id: 's_8B_17', name: 'Jauna Dominic', classId: '8B' },
+            { id: 's_8B_18', name: 'Jovanu Mochamad Ilham', classId: '8B' },
+            { id: 's_8B_19', name: 'Kim Ferdinand Al-Biruni Sudarmanto', classId: '8B' },
+            { id: 's_8B_20', name: 'Kun Rifky Syahputra', classId: '8B' },
+            { id: 's_8B_21', name: 'Maher Rizqi Widagdo', classId: '8B' },
+            { id: 's_8B_22', name: 'Mohammad Yudha Adi Pratama', classId: '8B' },
+            { id: 's_8B_23', name: 'Muhammad Rifqi Gaisa Alfian', classId: '8B' },
+            { id: 's_8B_24', name: 'Muhammad Zhen Herin Pratama', classId: '8B' },
+            { id: 's_8B_25', name: 'Nur Azizah Azzahra', classId: '8B' },
+            { id: 's_8B_26', name: 'Pandhu Damar Wicaksono', classId: '8B' },
+            { id: 's_8B_27', name: 'Rafayfa Firstania Dzaki', classId: '8B' },
+            { id: 's_8B_28', name: 'Raihan Mulia Insani', classId: '8B' },
+            { id: 's_8B_29', name: 'Salsabila Nadhifa Aqilah', classId: '8B' },
+            { id: 's_8B_30', name: 'Suryo Aji Jalu Syahputro', classId: '8B' },
+            { id: 's_8B_31', name: 'Tania Novalina Kusumawardani', classId: '8B' },
+            { id: 's_8B_32', name: 'Zaferro Afham Assakha', classId: '8B' },
+
+            // KELAS 8C
+            { id: 's_8C_1', name: 'Abimanyu Adhie Pamungkas', classId: '8C' },
+            { id: 's_8C_2', name: 'Adiel Yonatan Tuyu', classId: '8C' },
+            { id: 's_8C_3', name: 'Ageng Zendyono', classId: '8C' },
+            { id: 's_8C_4', name: 'Akhlifka Berliana Putri', classId: '8C' },
+            { id: 's_8C_5', name: 'Alena Fadila Amanda', classId: '8C' },
+            { id: 's_8C_6', name: 'Anindita Windy Angelina Natasya', classId: '8C' },
+            { id: 's_8C_7', name: 'Aqueena Putri Ferlyta', classId: '8C' },
+            { id: 's_8C_8', name: 'Daichi Andromedha', classId: '8C' },
+            { id: 's_8C_9', name: 'Fahrissa Nur Afdilla', classId: '8C' },
+            { id: 's_8C_10', name: 'Flower Cornelita Kimerly Setiadi', classId: '8C' },
+            { id: 's_8C_11', name: 'Jelita Anastasia', classId: '8C' },
+            { id: 's_8C_12', name: 'Keyla Azzahra Estami', classId: '8C' },
+            { id: 's_8C_13', name: 'Keysa Prili Risqiana Putri', classId: '8C' },
+            { id: 's_8C_14', name: 'Kinanti Dyah Larasati', classId: '8C' },
+            { id: 's_8C_15', name: 'Maulana Putra Nur Rohman', classId: '8C' },
+            { id: 's_8C_16', name: 'Muhammad Alfin Faiz Maulana', classId: '8C' },
+            { id: 's_8C_17', name: 'Muhammad Faqih Nur Ihsan', classId: '8C' },
+            { id: 's_8C_18', name: 'Muhammad Nur Destianto', classId: '8C' },
+            { id: 's_8C_19', name: 'Nadira Parsa Wardhani', classId: '8C' },
+            { id: 's_8C_20', name: 'Natane Sheryla Davily', classId: '8C' },
+            { id: 's_8C_21', name: 'Neo Arjuan Fauza', classId: '8C' },
+            { id: 's_8C_22', name: 'Nicole Charlotte', classId: '8C' },
+            { id: 's_8C_23', name: 'Raihan Al Farizky', classId: '8C' },
+            { id: 's_8C_24', name: 'Rama Juli Tri Cahyono', classId: '8C' },
+            { id: 's_8C_25', name: 'Ranni Anizza Kasafa', classId: '8C' },
+            { id: 's_8C_26', name: 'Satria Putra Ariesta', classId: '8C' },
+            { id: 's_8C_27', name: 'Sigit Bayu Nugroho Putro ', classId: '8C' },
+            { id: 's_8C_28', name: 'Syilvia Westin Mustika Wirawan', classId: '8C' },
+            { id: 's_8C_29', name: 'Valeril Evan Alvaro', classId: '8C' },
+            { id: 's_8C_30', name: 'Viqry Andiranno Rizwan', classId: '8C' },
+            { id: 's_8C_31', name: 'Yodha Masaccio Jethro', classId: '8C' },
+
+            // KELAS 8D
+            { id: 's_8D_1', name: 'Abyrama Yumna Abrizham', classId: '8D' },
+            { id: 's_8D_2', name: 'Adinda Alviena Salsabila', classId: '8D' },
+            { id: 's_8D_3', name: 'Aldo Vivian', classId: '8D' },
+            { id: 's_8D_4', name: 'Alif Cesar Ariyanto', classId: '8D' },
+            { id: 's_8D_5', name: 'Arfa Ahmas Abbad', classId: '8D' },
+            { id: 's_8D_6', name: 'Arza Okta Saputra', classId: '8D' },
+            { id: 's_8D_7', name: 'Clarezhio Reivano Dynata', classId: '8D' },
+            { id: 's_8D_8', name: 'Cristian Putra Anzano', classId: '8D' },
+            { id: 's_8D_9', name: 'Daffa Ahmadinejad Firmansyah', classId: '8D' },
+            { id: 's_8D_10', name: 'Dani Muhammad Darmawan', classId: '8D' },
+            { id: 's_8D_11', name: 'Dihiyan Gantari Pertiwi', classId: '8D' },
+            { id: 's_8D_12', name: 'Dimas Wahyu Dhani Saputro', classId: '8D' },
+            { id: 's_8D_13', name: 'Fiki Anggreani Nur Aswan', classId: '8D' },
+            { id: 's_8D_14', name: 'Garizah Talita Sari', classId: '8D' },
+            { id: 's_8D_15', name: 'Hafis Said Romadhon', classId: '8D' },
+            { id: 's_8D_16', name: 'Jaszphier Rey Sunartha', classId: '8D' },
+            { id: 's_8D_17', name: 'Jenita Nur Aini Putri', classId: '8D' },
+            { id: 's_8D_18', name: 'Jihan Izzattul Hamdah', classId: '8D' },
+            { id: 's_8D_19', name: 'Khayla Putri Maulidiana', classId: '8D' },
+            { id: 's_8D_20', name: 'Miftahurohma Putri Widodo', classId: '8D' },
+            { id: 's_8D_21', name: 'Muhamad Syahdan Arfan Irsyad', classId: '8D' },
+            { id: 's_8D_22', name: 'Muhammad Al - Azriel Ardiansyah', classId: '8D' },
+            { id: 's_8D_23', name: 'Nasyifa Eka Lutfi Martania', classId: '8D' },
+            { id: 's_8D_24', name: 'Rafael Eza Aryaputra Irawan', classId: '8D' },
+            { id: 's_8D_25', name: 'Rasyid Isam Anava', classId: '8D' },
+            { id: 's_8D_26', name: 'Sausan Athirah Putri Santosa', classId: '8D' },
+            { id: 's_8D_27', name: 'Shenli Amrina Al Hansri', classId: '8D' },
+            { id: 's_8D_28', name: 'Sherly Putri Verdiana', classId: '8D' },
+            { id: 's_8D_29', name: 'Siti Rochimah', classId: '8D' },
+            { id: 's_8D_30', name: 'Tengger Febyan Wardana Putra', classId: '8D' },
+            { id: 's_8D_31', name: 'Ulfi Dwi Rahmawati', classId: '8D' },
+            { id: 's_8D_32', name: 'Yoga Masaccio Briaan', classId: '8D' },
+
+            // KELAS 8E
+            { id: 's_8E_1', name: 'Aldiano Riqi Efendi', classId: '8E' },
+            { id: 's_8E_2', name: 'Aljero Galvano', classId: '8E' },
+            { id: 's_8E_3', name: 'Alvaro Radhitya Purnomo', classId: '8E' },
+            { id: 's_8E_4', name: 'Anatasya Octavia Purnamasari', classId: '8E' },
+            { id: 's_8E_5', name: 'Ariza Sholeh Wicaksono', classId: '8E' },
+            { id: 's_8E_6', name: 'Arza Arzelan Pramana', classId: '8E' },
+            { id: 's_8E_7', name: 'Ayunda Kharisma Putri', classId: '8E' },
+            { id: 's_8E_8', name: 'Bella Angelita Oktafiana', classId: '8E' },
+            { id: 's_8E_9', name: 'Bhima Adinata Putra', classId: '8E' },
+            { id: 's_8E_10', name: 'Bintang Amayzia Mahendra', classId: '8E' },
+            { id: 's_8E_11', name: 'Clareta Elvina Isdianto', classId: '8E' },
+            { id: 's_8E_12', name: 'Dhiatrika Sandhy Vijaya', classId: '8E' },
+            { id: 's_8E_13', name: 'Dimas Ragil Mahendra', classId: '8E' },
+            { id: 's_8E_14', name: 'Dimaz Harist Zianuddin Cahyono', classId: '8E' },
+            { id: 's_8E_15', name: 'Dyaz Eka Samudra', classId: '8E' },
+            { id: 's_8E_16', name: 'Heru Cahyo Pambudi', classId: '8E' },
+            { id: 's_8E_17', name: 'Hisyam Yanuar Ardiansyah', classId: '8E' },
+            { id: 's_8E_18', name: 'Keysha Syifana Azzahra', classId: '8E' },
+            { id: 's_8E_19', name: 'Meyvilda Putri Jelita', classId: '8E' },
+            { id: 's_8E_20', name: 'Muhammad Rafka Anggrawan', classId: '8E' },
+            { id: 's_8E_21', name: 'Muhammad Ridwan', classId: '8E' },
+            { id: 's_8E_22', name: 'Nasya Lethisyana Putri', classId: '8E' },
+            { id: 's_8E_23', name: 'Neisha Aceliena Putri', classId: '8E' },
+            { id: 's_8E_24', name: 'Raditya Damar Putra Pratama', classId: '8E' },
+            { id: 's_8E_25', name: 'Rattu Lintang Mutiara Hati', classId: '8E' },
+            { id: 's_8E_26', name: 'Rifqi Athalla Harminto', classId: '8E' },
+            { id: 's_8E_27', name: 'Riza Maliki Azhar', classId: '8E' },
+            { id: 's_8E_28', name: 'Salsabila Virginicha Callysta', classId: '8E' },
+            { id: 's_8E_29', name: 'Siti Nur Rasiyah', classId: '8E' },
+            { id: 's_8E_30', name: 'Vanesa Junia Ferby Arvianti', classId: '8E' },
+            { id: 's_8E_31', name: 'Zidan Guntur Sasongko', classId: '8E' },
+
+            // KELAS 8F
+            { id: 's_8F_1', name: 'Adelia Nur Aqila Febriani', classId: '8F' },
+            { id: 's_8F_2', name: 'Afriza Chika Putri Andiana', classId: '8F' },
+            { id: 's_8F_3', name: 'Akhila Prabaswara Hardani', classId: '8F' },
+            { id: 's_8F_4', name: 'Alehandra Mohd Firdee', classId: '8F' },
+            { id: 's_8F_5', name: 'Alessandro Saktiawan', classId: '8F' },
+            { id: 's_8F_6', name: 'Alfiendya Syahra Novita Putri', classId: '8F' },
+            { id: 's_8F_7', name: 'Alif Ega Raditya', classId: '8F' },
+            { id: 's_8F_8', name: 'Alvanesa Izza Ersandy', classId: '8F' },
+            { id: 's_8F_9', name: 'Arum Tyas Wulandari', classId: '8F' },
+            { id: 's_8F_10', name: 'Avrillia Puspa Intan Savira', classId: '8F' },
+            { id: 's_8F_11', name: 'Biansyahfi Putra Wardhana ', classId: '8F' },
+            { id: 's_8F_12', name: 'Briliant Lucky Nalendra', classId: '8F' },
+            { id: 's_8F_13', name: 'Carissa Cynthia Vahlevi', classId: '8F' },
+            { id: 's_8F_14', name: 'Ekalia Nuratikhah', classId: '8F' },
+            { id: 's_8F_15', name: 'Evan Chandra Vidiarta', classId: '8F' },
+            { id: 's_8F_16', name: 'Fyandyra Aulia Zahra', classId: '8F' },
+            { id: 's_8F_17', name: 'Hasna Nurul Aini', classId: '8F' },
+            { id: 's_8F_18', name: 'Kevin Rizqi Sirotullah', classId: '8F' },
+            { id: 's_8F_19', name: 'Miftah Nur Arifin', classId: '8F' },
+            { id: 's_8F_20', name: 'Muhammad Kenzhie Atharrizki', classId: '8F' },
+            { id: 's_8F_21', name: 'MUHAMAD REYHAN ADITYA', classId: '8F' },
+            { id: 's_8F_22', name: 'Nelandriyan Arva Rialzana', classId: '8F' },
+            { id: 's_8F_23', name: 'Prima Arya Dita Nugraha', classId: '8F' },
+            { id: 's_8F_24', name: 'Putri Ayu Ramadhani', classId: '8F' },
+            { id: 's_8F_25', name: 'Qothrun Nada Putri Salsabilah', classId: '8F' },
+            { id: 's_8F_26', name: 'Rasya Vella Dhamaruri', classId: '8F' },
+            { id: 's_8F_27', name: 'Rengga Tri Atmaja', classId: '8F' },
+            { id: 's_8F_28', name: 'Rizky Andi Rahman Cahyono', classId: '8F' },
+            { id: 's_8F_29', name: 'Rizky Dwi Fernando', classId: '8F' },
+            { id: 's_8F_30', name: 'Sikha Madeva Putra Purnama', classId: '8F' },
+            { id: 's_8F_31', name: 'Tegar Dwi Saputra', classId: '8F' },
+
+            // KELAS 8G
+            { id: 's_8G_1', name: 'Afika Mutiara Dewi', classId: '8G' },
+            { id: 's_8G_2', name: 'Akbar Ridho Prasetianto', classId: '8G' },
+            { id: 's_8G_3', name: 'Andhara Kirana Mahestri', classId: '8G' },
+            { id: 's_8G_4', name: 'Anugrah Aulia Juli', classId: '8G' },
+            { id: 's_8G_5', name: 'Aqilah Fairuz Elishiam ', classId: '8G' },
+            { id: 's_8G_6', name: 'Ardian Nur Trianto', classId: '8G' },
+            { id: 's_8G_7', name: 'Arsyaira Ardhista Luthvea', classId: '8G' },
+            { id: 's_8G_8', name: 'Azzaira Putri Ika Pradhini', classId: '8G' },
+            { id: 's_8G_9', name: 'Bayu Kharisma Saputra', classId: '8G' },
+            { id: 's_8G_10', name: 'Camisha Gwen Alicia', classId: '8G' },
+            { id: 's_8G_11', name: 'Fahrezza Raditya Firstzanata', classId: '8G' },
+            { id: 's_8G_12', name: 'Fajar Prastowo', classId: '8G' },
+            { id: 's_8G_13', name: 'Fathir Rangga Ferdyan', classId: '8G' },
+            { id: 's_8G_14', name: 'Freyza Julian Saputra', classId: '8G' },
+            { id: 's_8G_15', name: 'Kenzie Hafizh Alghifahry', classId: '8G' },
+            { id: 's_8G_16', name: 'Kun Rizky Syahputra', classId: '8G' },
+            { id: 's_8G_17', name: 'Kurnia Ryandra Putra', classId: '8G' },
+            { id: 's_8G_18', name: 'Lintang Restu Ariadi', classId: '8G' },
+            { id: 's_8G_19', name: 'Nabil Satria Dharmawan', classId: '8G' },
+            { id: 's_8G_20', name: 'Nizam Yanuanda Darma Pramuja', classId: '8G' },
+            { id: 's_8G_21', name: "Novi Zahrotun Nisa'", classId: '8G' },
+            { id: 's_8G_22', name: 'Radhitya Rohan Lintang Pradhitama', classId: '8G' },
+            { id: 's_8G_23', name: 'Rafael Nur Rokhim', classId: '8G' },
+            { id: 's_8G_24', name: 'Rangga Putra Wijaya', classId: '8G' },
+            { id: 's_8G_25', name: 'Rr.Naura Aisyah Apsarina Prabowo', classId: '8G' },
+            { id: 's_8G_26', name: 'Saraah Putri Aqiilah', classId: '8G' },
+            { id: 's_8G_27', name: 'Shafa Renita Putri Yuditira', classId: '8G' },
+            { id: 's_8G_28', name: 'Yasmin Atha Rifa Anjani', classId: '8G' },
+            { id: 's_8G_29', name: 'Yesica Delta Pristiana', classId: '8G' },
+            { id: 's_8G_30', name: 'Zakia Yoshi Ardelia', classId: '8G' },
+
+            // KELAS 8H
+            { id: 's_8H_1', name: 'Akbar Reva Pratama', classId: '8H' },
+            { id: 's_8H_2', name: 'Alarice Andromeda Evan Ramadhan', classId: '8H' },
+            { id: 's_8H_3', name: 'Anindya Rakha Bimantara', classId: '8H' },
+            { id: 's_8H_4', name: 'Ardina Nayla Rahmadani', classId: '8H' },
+            { id: 's_8H_5', name: 'Ardita Kayla Rahmadani', classId: '8H' },
+            { id: 's_8H_6', name: 'Aura Mega Chelsea', classId: '8H' },
+            { id: 's_8H_7', name: 'Azaira Nadatul Nur Afifah Mahfuzah', classId: '8H' },
+            { id: 's_8H_8', name: 'Bangkit Syahrif Hidayatullah', classId: '8H' },
+            { id: 's_8H_9', name: 'Bhisma Gelvin Fitra Pradhana', classId: '8H' },
+            { id: 's_8H_10', name: 'Brian Ardha Linanto', classId: '8H' },
+            { id: 's_8H_11', name: 'Callista Azka Audreylia', classId: '8H' },
+            { id: 's_8H_12', name: 'Carissa Wahana Putri', classId: '8H' },
+            { id: 's_8H_13', name: 'Dafa Rizqy Tauhid Febriansyah', classId: '8H' },
+            { id: 's_8H_14', name: 'Darrel Hilmy Purnomo', classId: '8H' },
+            { id: 's_8H_15', name: 'Definta Apriliawati Hendrata', classId: '8H' },
+            { id: 's_8H_16', name: 'Fauzia Hayu Dwinandari', classId: '8H' },
+            { id: 's_8H_17', name: 'Febriano Putra Ardivia', classId: '8H' },
+            { id: 's_8H_18', name: 'Fellya Dwi Nafarisna Putri', classId: '8H' },
+            { id: 's_8H_19', name: 'Gayuh Prayogo', classId: '8H' },
+            { id: 's_8H_20', name: 'Julian Rayhan Arrasyd', classId: '8H' },
+            { id: 's_8H_21', name: 'Kenzie Javas Niscala', classId: '8H' },
+            { id: 's_8H_22', name: 'Mahardika Febrian Wardhana', classId: '8H' },
+            { id: 's_8H_23', name: 'Muhammad Erikho Pramudita', classId: '8H' },
+            { id: 's_8H_24', name: 'Muhammad Maulana Indrasyahdan', classId: '8H' },
+            { id: 's_8H_25', name: 'Nahtania Agwi Eliza', classId: '8H' },
+            { id: 's_8H_26', name: 'Naira Indah Octafiana', classId: '8H' },
+            { id: 's_8H_27', name: 'Nando Ardiansyah Saputra', classId: '8H' },
+            { id: 's_8H_28', name: 'Nur Anisa Putri', classId: '8H' },
+            { id: 's_8H_29', name: 'Ridwan Nur Hidayat', classId: '8H' },
+            { id: 's_8H_30', name: 'Shafira Ismawardani', classId: '8H' },
+            { id: 's_8H_31', name: 'Syifa Az-Zahra Purnomo', classId: '8H' },
+
+            // KELAS 9A
+            { id: 's_9A_1', name: 'Adeva Ridwan Saputra', classId: '9A' },
+            { id: 's_9A_2', name: 'Aisyah Nur Aini', classId: '9A' },
+            { id: 's_9A_3', name: 'Aldi Rozaki Akbari Majid', classId: '9A' },
+            { id: 's_9A_4', name: 'Arga Herlino Nirwansyah', classId: '9A' },
+            { id: 's_9A_5', name: 'Azzahra Cahya Fitriana', classId: '9A' },
+            { id: 's_9A_6', name: 'Chikita Ranaa Dzakiyya', classId: '9A' },
+            { id: 's_9A_7', name: 'Davidaf Maulana Ibrahim', classId: '9A' },
+            { id: 's_9A_8', name: 'Dewa Wicaksono', classId: '9A' },
+            { id: 's_9A_9', name: 'Dhimas Aditya Krisna Putra', classId: '9A' },
+            { id: 's_9A_10', name: 'Dian Kavitan', classId: '9A' },
+            { id: 's_9A_11', name: 'Fabian Putra Pratama Alviano', classId: '9A' },
+            { id: 's_9A_12', name: 'Ferdinand Ghufron P', classId: '9A' },
+            { id: 's_9A_13', name: 'Florencya Cantika Dityawan', classId: '9A' },
+            { id: 's_9A_14', name: 'Gabriel Hansel Bernadette Y', classId: '9A' },
+            { id: 's_9A_15', name: 'Intan Ratri Destiani', classId: '9A' },
+            { id: 's_9A_16', name: 'Intan Regina Putri', classId: '9A' },
+            { id: 's_9A_17', name: 'Jeverson Putra Agil  ', classId: '9A' },
+            { id: 's_9A_18', name: 'Jonathan Felizio Ravando', classId: '9A' },
+            { id: 's_9A_19', name: 'Keisyfina Redina Indri Yuliaz', classId: '9A' },
+            { id: 's_9A_20', name: 'Keyla Wahyu Oktavia Putri', classId: '9A' },
+            { id: 's_9A_21', name: 'Krhisna Rama E', classId: '9A' },
+            { id: 's_9A_22', name: 'Listy Amanda Elshada Nee', classId: '9A' },
+            { id: 's_9A_23', name: 'Muhammad Aziiz Berliano', classId: '9A' },
+            { id: 's_9A_24', name: 'Nataly Zaula Gadis M', classId: '9A' },
+            { id: 's_9A_25', name: 'Nisilla Metta Arleta', classId: '9A' },
+            { id: 's_9A_26', name: 'Panji Catur Rama Wijaya', classId: '9A' },
+            { id: 's_9A_27', name: 'Pricillya Dhizna Fima R', classId: '9A' },
+            { id: 's_9A_28', name: 'Rafa Wisnu S', classId: '9A' },
+            { id: 's_9A_29', name: 'Smirna Sanoberlian', classId: '9A' },
+            { id: 's_9A_30', name: 'Valian Maulana Agung', classId: '9A' },
+
+            // KELAS 9B
+            { id: 's_9B_1', name: 'Adelia Bunga Putri Basuni', classId: '9B' },
+            { id: 's_9B_2', name: 'Aditya Eka Saputra', classId: '9B' },
+            { id: 's_9B_3', name: 'Alfin Sagita', classId: '9B' },
+            { id: 's_9B_4', name: 'Angelika W D', classId: '9B' },
+            { id: 's_9B_5', name: 'Arjuna Lazuardi', classId: '9B' },
+            { id: 's_9B_6', name: 'Azzahra Putri Ayuningtyas', classId: '9B' },
+            { id: 's_9B_7', name: 'Bagas Himawan', classId: '9B' },
+            { id: 's_9B_8', name: 'Davin Afila Ezar', classId: '9B' },
+            { id: 's_9B_9', name: 'Dzul Jala Walikram', classId: '9B' },
+            { id: 's_9B_10', name: 'Gladieza Reuvilla A', classId: '9B' },
+            { id: 's_9B_11', name: 'Halisya Meiliana Ilahi', classId: '9B' },
+            { id: 's_9B_12', name: 'Ilham Eko B', classId: '9B' },
+            { id: 's_9B_13', name: 'Khalila Syifa Ghaida', classId: '9B' },
+            { id: 's_9B_14', name: 'Malvin Dwi Yuliyan Prabowo', classId: '9B' },
+            { id: 's_9B_15', name: 'Muhamad Azka Rezky Pratama', classId: '9B' },
+            { id: 's_9B_16', name: 'Muhammad Dzaky Almer S', classId: '9B' },
+            { id: 's_9B_17', name: 'Nabila Putri Setyaningsih', classId: '9B' },
+            { id: 's_9B_18', name: 'Nayara Zaneta M', classId: '9B' },
+            { id: 's_9B_19', name: 'Nevana Ayu Nur Fajarsari', classId: '9B' },
+            { id: 's_9B_20', name: 'Panji Tri Setiyawan ', classId: '9B' },
+            { id: 's_9B_21', name: 'Prisca Putri Anjani', classId: '9B' },
+            { id: 's_9B_22', name: 'Rangga Yoga Pratama', classId: '9B' },
+            { id: 's_9B_23', name: 'Ridho Putra Pratama', classId: '9B' },
+            { id: 's_9B_24', name: 'Risang Juang Kusumo Aji', classId: '9B' },
+            { id: 's_9B_25', name: 'Riyana Cahya Syahputri', classId: '9B' },
+            { id: 's_9B_26', name: 'Sachio Nadhif Az-Zahra', classId: '9B' },
+            { id: 's_9B_27', name: 'Zaki Adhyasta Jumeri', classId: '9B' },
+            { id: 's_9B_28', name: 'Zaneta Fawwaz Leonardheena', classId: '9B' },
+            { id: 's_9B_29', name: 'Zaskia Julia Putri', classId: '9B' },
+
+            // KELAS 9C
+            { id: 's_9C_1', name: 'Adimas Bagus Aprilyant', classId: '9C' },
+            { id: 's_9C_2', name: 'Alvicho Vicky Putra G', classId: '9C' },
+            { id: 's_9C_3', name: 'Angelo Galen Christabel', classId: '9C' },
+            { id: 's_9C_4', name: 'Anggi Remora Sidadolog', classId: '9C' },
+            { id: 's_9C_5', name: 'Anindra Betta Maheswari', classId: '9C' },
+            { id: 's_9C_6', name: 'Avrilio Riswan', classId: '9C' },
+            { id: 's_9C_7', name: 'Berliana Fasha', classId: '9C' },
+            { id: 's_9C_8', name: 'Brilliant Akbar Pratista', classId: '9C' },
+            { id: 's_9C_9', name: 'Cantika Suryaningrum', classId: '9C' },
+            { id: 's_9C_10', name: 'Davin Aji Putra Y', classId: '9C' },
+            { id: 's_9C_11', name: 'Dizta Areta Juliana', classId: '9C' },
+            { id: 's_9C_12', name: 'Elvina Indriani Athalia Putri ', classId: '9C' },
+            { id: 's_9C_13', name: 'Fakhry Nur Wahid', classId: '9C' },
+            { id: 's_9C_14', name: 'Giovani Dimas Febian', classId: '9C' },
+            { id: 's_9C_15', name: 'Hanni Nur Fitriani', classId: '9C' },
+            { id: 's_9C_16', name: 'Ivandy Ridho Saputra', classId: '9C' },
+            { id: 's_9C_17', name: 'Khrisna Jaya Kusuma', classId: '9C' },
+            { id: 's_9C_18', name: 'Lucky Wisnu Sahputra', classId: '9C' },
+            { id: 's_9C_19', name: 'Muhamad Khaidir', classId: '9C' },
+            { id: 's_9C_20', name: 'Nabil Reza A', classId: '9C' },
+            { id: 's_9C_21', name: 'Nabilah Ailsa Azalia Cahyarini', classId: '9C' },
+            { id: 's_9C_22', name: 'Naysilla Nikita Bela', classId: '9C' },
+            { id: 's_9C_23', name: 'Neidji Dwi Fajar Reto', classId: '9C' },
+            { id: 's_9C_24', name: 'Raiya Septya Cahya Putri', classId: '9C' },
+            { id: 's_9C_25', name: 'Roihan Arya Nurfaiz', classId: '9C' },
+            { id: 's_9C_26', name: 'Safa Al Hidayahtin  ', classId: '9C' },
+            { id: 's_9C_27', name: 'Shenta Zhavira Inov Delmesti', classId: '9C' },
+            { id: 's_9C_28', name: 'Syifa Ayu Salsabila', classId: '9C' },
+            { id: 's_9C_29', name: 'Tiara Ramadiandra', classId: '9C' },
+            { id: 's_9C_30', name: 'Yafi Aprila Apsari', classId: '9C' },
+            { id: 's_9C_31', name: 'Zaki Zakaria', classId: '9C' },
+
+            // KELAS 9D
+            { id: 's_9D_1', name: 'Aditya Nuriz Saptama P', classId: '9D' },
+            { id: 's_9D_2', name: 'Ahmad Ro\'iz Nugroho', classId: '9D' },
+            { id: 's_9D_3', name: 'Angga Yudha', classId: '9D' },
+            { id: 's_9D_4', name: 'Aurel Novaida Putri Amira W', classId: '9D' },
+            { id: 's_9D_5', name: 'Bambang Purnomo Aji', classId: '9D' },
+            { id: 's_9D_6', name: 'Berlian Febrizia Mahendra', classId: '9D' },
+            { id: 's_9D_7', name: 'Callista Alya Thirza', classId: '9D' },
+            { id: 's_9D_8', name: 'Deftania Syaluna', classId: '9D' },
+            { id: 's_9D_9', name: 'Dewangga Fadya Putra', classId: '9D' },
+            { id: 's_9D_10', name: 'Dhea Putri Ananda', classId: '9D' },
+            { id: 's_9D_11', name: 'Faizal Arif Permana Maha P', classId: '9D' },
+            { id: 's_9D_12', name: 'Fania Elvi Aryanti', classId: '9D' },
+            { id: 's_9D_13', name: 'Finza Gilang Ramadhani', classId: '9D' },
+            { id: 's_9D_14', name: 'Indyrahmania S', classId: '9D' },
+            { id: 's_9D_15', name: 'Iqbal Risky Pradigta', classId: '9D' },
+            { id: 's_9D_16', name: 'M.Asraf Hanafi Al Habsyi', classId: '9D' },
+            { id: 's_9D_17', name: 'Meilina Putri A', classId: '9D' },
+            { id: 's_9D_18', name: 'Meisya Cantika Zalianti', classId: '9D' },
+            { id: 's_9D_19', name: 'Merlyn Dewi Naj’mi', classId: '9D' },
+            { id: 's_9D_20', name: 'Nadzla Nur Fatikhah', classId: '9D' },
+            { id: 's_9D_21', name: 'Nindy Fitria Melati', classId: '9D' },
+            { id: 's_9D_22', name: 'Nixon Farel Saputra', classId: '9D' },
+            { id: 's_9D_23', name: 'R. Rezqi Alfiansyah Thaher', classId: '9D' },
+            { id: 's_9D_24', name: 'Regina Nabilah F', classId: '9D' },
+            { id: 's_9D_25', name: 'Rengga Fajar Putra P', classId: '9D' },
+            { id: 's_9D_26', name: 'Selfano Kusuma Wijaya', classId: '9D' },
+            { id: 's_9D_27', name: 'Vanesha Regina Putri', classId: '9D' },
+            { id: 's_9D_28', name: 'Vellysa Ika Putri Ramadhani  ', classId: '9D' },
+            { id: 's_9D_29', name: 'Willy Mahendra Widodo', classId: '9D' },
+
+            // KELAS 9E
+            { id: 's_9E_1', name: 'Afriza Alvin Ardiansyah', classId: '9E' },
+            { id: 's_9E_2', name: 'Ahmad Fa\'iz Nugroho', classId: '9E' },
+            { id: 's_9E_3', name: 'Aldiano Gibran Subhakti', classId: '9E' },
+            { id: 's_9E_4', name: 'Anggi Yudhi', classId: '9E' },
+            { id: 's_9E_5', name: 'Ayuddia Shifa Estica P', classId: '9E' },
+            { id: 's_9E_6', name: 'Bima Bhadrika A', classId: '9E' },
+            { id: 's_9E_7', name: 'Chantika Alvina N', classId: '9E' },
+            { id: 's_9E_8', name: 'Chechilya Ayumi Mayanda', classId: '9E' },
+            { id: 's_9E_9', name: 'Che\'du Sabit Halentora Nararya', classId: '9E' },
+            { id: 's_9E_10', name: 'Dzulkifli Ali Akbar', classId: '9E' },
+            { id: 's_9E_11', name: 'Erlangga Afif Ferdyan', classId: '9E' },
+            { id: 's_9E_12', name: 'Fanni Febriant A.P', classId: '9E' },
+            { id: 's_9E_13', name: 'Gizta Rani Savira  ', classId: '9E' },
+            { id: 's_9E_14', name: 'Kaetha Kinara', classId: '9E' },
+            { id: 's_9E_15', name: 'Kun Aji Syahputra', classId: '9E' },
+            { id: 's_9E_16', name: 'Meyza Aivina Azzahra', classId: '9E' },
+            { id: 's_9E_17', name: 'Muhammad Yusuf Al Fadli', classId: '9E' },
+            { id: 's_9E_18', name: 'Nabila April Yana', classId: '9E' },
+            { id: 's_9E_19', name: 'Nadira Azifah Putriana Sabbih', classId: '9E' },
+            { id: 's_9E_20', name: 'Nasyifa Zahra Prasetyayu', classId: '9E' },
+            { id: 's_9E_21', name: 'Novita Sherliana Putri', classId: '9E' },
+            { id: 's_9E_22', name: 'Reifan Habib Putra Arieska', classId: '9E' },
+            { id: 's_9E_23', name: 'Revan Dito Adriansyah', classId: '9E' },
+            { id: 's_9E_24', name: 'Rofa Azhar Kurniallah', classId: '9E' },
+            { id: 's_9E_25', name: 'Shinta Puspita A', classId: '9E' },
+            { id: 's_9E_26', name: 'Suryana ', classId: '9E' },
+            { id: 's_9E_27', name: 'Tarani Syahdarida', classId: '9E' },
+            { id: 's_9E_28', name: 'Virgo Maulana', classId: '9E' },
+            { id: 's_9E_29', name: 'Yarisa Uswatun Khazanah', classId: '9E' },
+
+            // KELAS 9F
+            { id: 's_9F_1', name: 'Ainun Fatmawati', classId: '9F' },
+            { id: 's_9F_2', name: 'Andra Dwi Saputra', classId: '9F' },
+            { id: 's_9F_3', name: 'Argy Putra Mahardika', classId: '9F' },
+            { id: 's_9F_4', name: 'Dhista Meylany Pratama P', classId: '9F' },
+            { id: 's_9F_5', name: 'Faisal Ahmad Musyaddad', classId: '9F' },
+            { id: 's_9F_6', name: 'Ivan Defri Fernando', classId: '9F' },
+            { id: 's_9F_7', name: 'Jabriel Altan Tirta T', classId: '9F' },
+            { id: 's_9F_8', name: 'Mochamad. Satria Putra N', classId: '9F' },
+            { id: 's_9F_9', name: 'Muhamad Rifqi Ananda Putra', classId: '9F' },
+            { id: 's_9F_10', name: 'Naila Zulfa A.H', classId: '9F' },
+            { id: 's_9F_11', name: 'Najwa Audrey Ramadhani', classId: '9F' },
+            { id: 's_9F_12', name: 'Nizam Bintang Nur N', classId: '9F' },
+            { id: 's_9F_13', name: 'Nur Aisyah', classId: '9F' },
+            { id: 's_9F_14', name: 'Oktavia Putri Maharani', classId: '9F' },
+            { id: 's_9F_15', name: 'Paradiya Nur Kamila', classId: '9F' },
+            { id: 's_9F_16', name: 'Putri Novita Puspitasari', classId: '9F' },
+            { id: 's_9F_17', name: 'Rafa Nayaka Kafi Putra', classId: '9F' },
+            { id: 's_9F_18', name: 'Rafali Alfarrezal Riyanto', classId: '9F' },
+            { id: 's_9F_19', name: 'Regina Vira Amelia', classId: '9F' },
+            { id: 's_9F_20', name: 'Reva Inar Juniawati', classId: '9F' },
+            { id: 's_9F_21', name: 'Robin Enggar Saputro', classId: '9F' },
+            { id: 's_9F_22', name: 'Saaqiif Naufal Pratama', classId: '9F' },
+            { id: 's_9F_23', name: 'Saucha Shivaratri Dhyanasatya', classId: '9F' },
+            { id: 's_9F_24', name: 'Stefani Ayu Wardani', classId: '9F' },
+            { id: 's_9F_25', name: 'Wian Aristianto', classId: '9F' },
+            { id: 's_9F_26', name: 'Yoga Catur Prasetyo', classId: '9F' },
+            { id: 's_9F_27', name: 'Zabriel Aletha Gadis M', classId: '9F' },
+            { id: 's_9F_28', name: 'Zahmillia Ahmadan Ash W', classId: '9F' },
+
+            // KELAS 9G
+            { id: 's_9G_1', name: 'Adi Nugroho', classId: '9G' },
+            { id: 's_9G_2', name: 'Affainda Pertiwi', classId: '9G' },
+            { id: 's_9G_3', name: 'Ananda Alvi Rahma  ', classId: '9G' },
+            { id: 's_9G_4', name: 'Angelica Fernanda Sari', classId: '9G' },
+            { id: 's_9G_5', name: 'Arbian Nur F', classId: '9G' },
+            { id: 's_9G_6', name: 'Azkiela Nasya Maharani', classId: '9G' },
+            { id: 's_9G_7', name: 'Bryan Rafcha C.D', classId: '9G' },
+            { id: 's_9G_8', name: 'Dayla Pradista Risti', classId: '9G' },
+            { id: 's_9G_9', name: 'Febry Nandasari  ', classId: '9G' },
+            { id: 's_9G_10', name: 'Fernando Tegar Juniarta', classId: '9G' },
+            { id: 's_9G_11', name: 'Gavril Nevan Gananda', classId: '9G' },
+            { id: 's_9G_12', name: 'Hillal Rizky Pratama', classId: '9G' },
+            { id: 's_9G_13', name: 'Jevaro Briyan Nur Octaviano', classId: '9G' },
+            { id: 's_9G_14', name: 'Kaka Yusuf Maulana Wibisono', classId: '9G' },
+            { id: 's_9G_15', name: 'Kalista Zeta Natania', classId: '9G' },
+            { id: 's_9G_16', name: 'Katherine Putri Alviansyah', classId: '9G' },
+            { id: 's_9G_17', name: 'Krisna Rico Oktaviano', classId: '9G' },
+            { id: 's_9G_18', name: 'Moh. Ilham Buchori', classId: '9G' },
+            { id: 's_9G_19', name: 'Muhammad Afif Badarudin', classId: '9G' },
+            { id: 's_9G_20', name: 'Nabyla Atira Putri  ', classId: '9G' },
+            { id: 's_9G_21', name: 'Nesya Julia Khansa', classId: '9G' },
+            { id: 's_9G_22', name: 'Ozil Leonard Rudiyamsyah', classId: '9G' },
+            { id: 's_9G_23', name: 'Rafa Al-Fansya Davin', classId: '9G' },
+            { id: 's_9G_24', name: 'Rafif Rasya Hean Pastika', classId: '9G' },
+            { id: 's_9G_25', name: 'Ratu Brisha Arthalita P', classId: '9G' },
+            { id: 's_9G_26', name: 'Refaniar Galuh P', classId: '9G' },
+            { id: 's_9G_27', name: 'Shandy Eka Priwindya P', classId: '9G' },
+            { id: 's_9G_28', name: 'Tasya Kris Tania Fandsa Putri', classId: '9G' },
+            { id: 's_9G_29', name: 'Zhildan Alamsyah P', classId: '9G' }
+        ];
+
+        // --- ICONS (SVG STRINGS) ---
+        // ... (Icons tetap sama) ...
+        const Icons = {
+            Sun: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>,
+            Moon: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>,
+            Heart: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>,
+            Activity: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>,
+            Utensils: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2v0a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/></svg>,
+            BookOpen: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>,
+            Users: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+            CheckCircle: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4 12 14.01l-3-3"/></svg>,
+            Calendar: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>,
+            Trophy: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>,
+            Star: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>,
+            User: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+            LogOut: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>,
+            Award: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>,
+            MessageSquare: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
+            Video: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2" ry="2"/></svg>,
+            Music: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>,
+            ChevronDown: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>,
+            ChevronUp: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m18 15-6-6-6 6"/></svg>,
+            Close: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>,
+            Refresh: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>,
+            FileText: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>,
+            Download: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+        };
+
+        // --- STICKER & VALIDATION CONSTANTS ---
+        const VALIDATION_OPTIONS = [
+            { value: 'excellent', label: 'Istimewa', icon: '🌟' },
+            { value: 'good', label: 'Baik', icon: '👍' },
+            { value: 'enough', label: 'Cukup', icon: '👌' },
+            { value: 'spirit', label: 'Semangat', icon: '💪' }
+        ];
+
+        const HABITS = [
+          // ... (Habits constants tetap sama) ...
+          { 
+            id: 'h1', title: 'Bangun Pagi', icon: Icons.Sun, color: 'text-yellow-500', desc: 'Target: 04.00 - 06.00', type: 'time',
+            items: ['Bangun tidur antara pukul 04.00 - 06.00.']
+          },
+          { 
+            id: 'h2', title: 'Beribadah', icon: Icons.Heart, color: 'text-purple-500', desc: 'Ibadah & Doa Harian', type: 'check',
+            items: ['Melaksanakan ibadah rutin harian sesuai ajaran agama.', 'Berdoa bersama sebelum dan sesudah pembelajaran.', 'Mengikuti kegiatan keagamaan atau ekstrakurikuler.']
+          },
+          { 
+            id: 'h3', title: 'Berolahraga', icon: Icons.Activity, color: 'text-red-500', desc: 'Senam & Fisik Sehat', type: 'check',
+            items: ['Mengikuti senam pagi minimal dua kali seminggu.', 'Melakukan aktivitas fisik seperti jalan sehat.', 'Melakukan peregangan singkat.']
+          },
+          { 
+            id: 'h4', title: 'Makan Sehat', icon: Icons.Utensils, color: 'text-green-500', desc: 'Gizi Seimbang & Air Putih', type: 'check',
+            items: ['Menerapkan prinsip "Isi Piringku".', 'Membawa bekal sehat dari rumah.', 'Minum air putih minimal 8 gelas sehari.', 'Jajanan sehat rendah gula/garam.']
+          },
+          { 
+            id: 'h5', title: 'Gemar Belajar', icon: Icons.BookOpen, color: 'text-blue-500', desc: 'Literasi & Belajar Mandiri', type: 'check',
+            items: ['Membaca buku setiap hari.', 'Mematuhi jadwal belajar mandiri.', 'Aktif bertanya dan berdiskusi.', 'Menetapkan target belajar pribadi.']
+          },
+          { 
+            id: 'h6', title: 'Bermasyarakat', icon: Icons.Users, color: 'text-orange-500', desc: 'Sosial & Gotong Royong', type: 'check',
+            items: ['Gotong royong membersihkan lingkungan.', 'Melakukan aksi sosial.', 'Tata krama dan budaya antre.', 'Bermain permainan tradisional.']
+          },
+          { 
+            id: 'h7', title: 'Tidur Cepat', icon: Icons.Moon, color: 'text-indigo-600', desc: 'Target: 21:00 (Jam 9 Malam)', type: 'time',
+            items: ['Tidur tepat waktu (8-9 jam).', 'Menghindari gadget 1 jam sebelum tidur.', 'Membaca buku fisik sebelum tidur.']
+          },
+        ];
+
+        // --- COMPONENTS ---
+
+        const Card = ({ children, className = '' }) => (
+            <div className={`bg-white rounded-xl shadow-sm border border-slate-100 ${className}`}>
+                {children}
+            </div>
+        );
+
+        // ... (TimePicker24H component tetap sama) ...
+        const TimePicker24H = ({ value, onChange, disabled }) => {
+            // value format "HH:mm"
+            const [hours, minutes] = (value || "00:00").split(":");
+
+            const handleHourChange = (e) => {
+                const newH = e.target.value;
+                onChange(`${newH}:${minutes}`);
+            };
+
+            const handleMinuteChange = (e) => {
+                const newM = e.target.value;
+                onChange(`${hours}:${newM}`);
+            };
+
+            const hourOptions = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
+            const minuteOptions = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'));
+
+            return (
+                <div className="flex items-center gap-1 bg-white border-2 border-blue-100 rounded-lg p-1 shadow-sm">
+                    <select 
+                        value={hours} 
+                        onChange={handleHourChange}
+                        disabled={disabled}
+                        className="bg-transparent text-sm font-bold text-blue-600 outline-none p-1 cursor-pointer appearance-none text-center min-w-[40px]"
+                    >
+                        {hourOptions.map(h => <option key={h} value={h}>{h}</option>)}
+                    </select>
+                    <span className="text-blue-300 font-bold">:</span>
+                    <select 
+                        value={minutes} 
+                        onChange={handleMinuteChange}
+                        disabled={disabled}
+                        className="bg-transparent text-sm font-bold text-blue-600 outline-none p-1 cursor-pointer appearance-none text-center min-w-[40px]"
+                    >
+                        {minuteOptions.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                </div>
+            );
+        };
+
+        // Setup Instruction Screen
+        function SetupInstruction() {
+            return (
+                <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+                    <Card className="w-full p-8 text-center animate-fade-in-up">
+                        <div className="w-20 h-20 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <Icons.Sun />
+                        </div>
+                        <h1 className="text-2xl font-bold text-slate-800 mb-2">Aplikasi Belum Terhubung</h1>
+                        <p className="text-slate-600 mb-6">
+                            Untuk menggunakan aplikasi ini, Anda harus menghubungkannya ke database Firebase milik sekolah.
+                        </p>
+                        
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-left text-sm text-yellow-800 mb-6">
+                            <p className="font-bold mb-2">Langkah Perbaikan:</p>
+                            <ol className="list-decimal pl-5 space-y-1">
+                                <li>Buka file <code>index.html</code> (kode aplikasi ini).</li>
+                                <li>Cari bagian <code>firebaseConfig</code> di awal skrip.</li>
+                                <li>Ganti teks <code>GANTI_DENGAN_API_KEY_ANDA</code> dan lainnya dengan konfigurasi dari Firebase Console Anda.</li>
+                            </ol>
+                        </div>
+                        
+                        <a 
+                            href="https://console.firebase.google.com" 
+                            target="_blank"
+                            className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-blue-700 transition-colors"
+                        >
+                            Buka Firebase Console
+                        </a>
+                    </Card>
+                </div>
+            );
+        }
+
+        // ... (HabitList component tetap sama) ...
+        function HabitList({ initialData, onSave, isReadOnly }) {
+            const [data, setData] = React.useState({});
+            const [expandedHabit, setExpandedHabit] = React.useState(null);
+            // Tambahkan state untuk konfirmasi
+            const [showConfirm, setShowConfirm] = React.useState(false);
+
+            React.useEffect(() => {
+                const defaults = {};
+                HABITS.forEach(h => {
+                    defaults[h.id] = initialData[h.id] || { status: false, timeValue: '' };
+                });
+                setData(defaults);
+            }, [initialData]);
+
+            const toggleExpand = (id) => {
+                setExpandedHabit(expandedHabit === id ? null : id);
+            };
+
+            const handleChange = (id, field, value) => {
+                if (isReadOnly) return;
+                
+                const newData = {
+                    ...data,
+                    [id]: { ...data[id], [field]: value }
+                };
+
+                // Logic Bangun Pagi
+                if (id === 'h1' && field === 'timeValue') { 
+                    const [hours, mins] = value.split(':').map(Number);
+                    const timeVal = hours + (mins/60);
+                    newData[id].status = timeVal >= 4 && timeVal <= 6;
+                }
+                
+                // Logic Tidur
+                if (id === 'h7' && field === 'timeValue') { 
+                    newData[id].status = value !== ''; 
+                }
+
+                setData(newData);
+            };
+
+            // Ganti handleSave dengan triggerConfirm
+            const triggerConfirm = () => {
+                setShowConfirm(true);
+            }
+
+            const confirmSave = () => {
+                setShowConfirm(false);
+                onSave(data);
+                // alert akan dipanggil di parent component (StudentDashboard) setelah proses async
+            };
+
+            return (
+                <div className="space-y-4">
+                    {HABITS.map(habit => {
+                        const itemData = data[habit.id] || { status: false, timeValue: '' };
+                        const Icon = habit.icon;
+                        const isExpanded = expandedHabit === habit.id;
+                        
+                        return (
+                            <Card key={habit.id} className="p-4 transition-all hover:shadow-md">
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                                    <div className={`p-3 rounded-xl bg-slate-50 ${habit.color}`}>
+                                        <Icon />
+                                    </div>
+                                    <div className="flex-1 cursor-pointer" onClick={() => toggleExpand(habit.id)}>
+                                        <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                                            {habit.title}
+                                            {isExpanded ? <Icons.ChevronUp /> : <Icons.ChevronDown />}
+                                        </h3>
+                                        <p className="text-xs text-slate-500">{habit.desc}</p>
+                                    </div>
+                                    
+                                    <div className="flex items-center gap-4">
+                                        {habit.type === 'time' && (
+                                            <div className="flex flex-col items-end gap-1">
+                                                <TimePicker24H 
+                                                    value={itemData.timeValue}
+                                                    onChange={(val) => handleChange(habit.id, 'timeValue', val)}
+                                                    disabled={isReadOnly}
+                                                />
+                                                <span className={`text-[10px] font-bold ${itemData.status ? 'text-green-600' : 'text-slate-400'}`}>
+                                                    {itemData.status ? 'Ya' : 'Tidak'}
+                                                </span>
+                                            </div>
+                                        )}
+                                        
+                                        <button
+                                            disabled={isReadOnly || habit.type === 'time'}
+                                            onClick={() => handleChange(habit.id, 'status', !itemData.status)}
+                                            className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
+                                                itemData.status 
+                                                ? 'bg-green-500 text-white shadow-green-200 shadow-lg scale-105' 
+                                                : 'bg-slate-100 text-slate-300 hover:bg-slate-200'
+                                            }`}
+                                        >
+                                            {itemData.status ? <Icons.CheckCircle /> : <div className="w-4 h-4 rounded-full border-2 border-slate-300" />}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {isExpanded && (
+                                    <div className="mt-4 pt-3 border-t border-slate-100 bg-slate-50/50 -mx-4 -mb-4 p-4 rounded-b-xl animate-fade-in-down">
+                                        <p className="text-xs font-bold text-slate-500 uppercase mb-2">Kegiatan:</p>
+                                        <ul className="space-y-1">
+                                            {habit.items.map((item, idx) => (
+                                                <li key={idx} className="text-sm text-slate-600 flex items-start gap-2">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 shrink-0" />
+                                                    <span>{item}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+                            </Card>
+                        );
+                    })}
+                    
+                    {!isReadOnly && (
+                        <div className="sticky bottom-4">
+                            <button 
+                                onClick={triggerConfirm}
+                                className="w-full bg-blue-600 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-200 active:scale-95 transition-all flex justify-center items-center gap-2"
+                            >
+                               <Icons.CheckCircle size={20}/> Simpan Jurnal Hari Ini
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Konfirmasi Modal */}
+                    {showConfirm && (
+                        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4 animate-fade-in-up">
+                            <div className="bg-white w-full max-w-sm rounded-2xl p-6 shadow-2xl text-center">
+                                <div className="w-16 h-16 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <span className="text-3xl">⚠️</span>
+                                </div>
+                                <h3 className="font-bold text-lg text-slate-800 mb-2">Konfirmasi Simpan</h3>
+                                <p className="text-sm text-slate-500 mb-6">
+                                    Apakah semua data sudah benar? <br/>
+                                    Jurnal <b>hanya bisa diisi 1 kali sehari</b>. Anda tidak dapat mengubahnya setelah disimpan.
+                                </p>
+                                <div className="flex gap-3">
+                                    <button 
+                                        onClick={() => setShowConfirm(false)}
+                                        className="flex-1 py-2 text-slate-600 font-medium hover:bg-slate-100 rounded-lg transition-colors"
+                                    >
+                                        Cek Lagi
+                                    </button>
+                                    <button 
+                                        onClick={confirmSave}
+                                        className="flex-1 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors shadow-md"
+                                    >
+                                        Ya, Simpan
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        function LoginScreen({ onLogin }) {
+            const [role, setRole] = React.useState('student');
+            
+            // State untuk filter Tingkat & Kelas
+            const [selectedGrade, setSelectedGrade] = React.useState('7'); // Default Kelas 7
+            const [selectedClass, setSelectedClass] = React.useState('7A');
+            
+            // State for Teacher Login
+            const [username, setUsername] = React.useState('');
+            const [password, setPassword] = React.useState('');
+            const [loginError, setLoginError] = React.useState(''); 
+            
+            // 1. Ambil daftar kelas sesuai tingkat yang dipilih
+            const classOptions = React.useMemo(() => {
+                const allClassIds = [...new Set(ALL_STUDENTS.map(s => s.classId))];
+                // Filter kelas yang berawalan dengan selectedGrade (misal "7")
+                return allClassIds.filter(id => id.startsWith(selectedGrade)).sort();
+            }, [selectedGrade]);
+
+            // 2. Efek samping: Jika tingkat berubah, otomatis pilih kelas pertama di tingkat itu
+            React.useEffect(() => {
+                if (classOptions.length > 0) {
+                     // Cek apakah kelas yang dipilih sekarang ada di daftar opsi baru
+                     // Jika tidak ada (misal pindah dr 7A ke Kelas 8), reset ke opsi pertama (8A)
+                    if (!classOptions.includes(selectedClass)) {
+                        setSelectedClass(classOptions[0]);
+                    }
+                }
+            }, [selectedGrade, classOptions, selectedClass]);
+
+            const filteredStudents = React.useMemo(() => {
+                return ALL_STUDENTS.filter(s => s.classId === selectedClass);
+            }, [selectedClass]);
+
+            const handleLogin = (id, name, role, classId) => {
+                let childId = null;
+                if (role === 'parent') {
+                    childId = id.replace('parent_', ''); 
+                }
+                onLogin({ id, name, role, classId, childId });
+            };
+
+            const handleTeacherLogin = () => {
+                const teacher = TEACHERS.find(t => t.username === username && t.password === password);
+                if (teacher) {
+                    setLoginError(''); // Clear error
+                    onLogin({ id: teacher.id, name: teacher.name, role: 'teacher', classId: teacher.classId });
+                } else {
+                    setLoginError("Username atau Password salah, silahkan ulangi kembali"); // Set error message
+                }
+            };
+
+            return (
+                <div className="h-full min-h-screen bg-gradient-to-br from-blue-500 to-indigo-600 flex flex-col items-center justify-center p-4">
+                    <Card className="w-full p-6 animate-fade-in-up shadow-xl">
+                        <div className="text-center mb-8">
+                            <div className="flex justify-center items-center gap-4 mb-6">
+                                {/* Logo Tut Wuri (Kiri) */}
+                                <img 
+                                    src="https://upload.wikimedia.org/wikipedia/commons/thumb/9/9c/Logo_of_Ministry_of_Education_and_Culture_of_Republic_of_Indonesia.svg/480px-Logo_of_Ministry_of_Education_and_Culture_of_Republic_of_Indonesia.svg.png" 
+                                    alt="Logo Tut Wuri" 
+                                    className="w-20 h-20 object-contain"
+                                />
+                                {/* Logo Sekolah 1 (Tengah) - Diperbarui */}
+                                <img 
+                                    src="https://drive.google.com/thumbnail?id=1d4qfEA7EgLygskxHgK1DfRc0uGxy9_Tr&sz=w200" 
+                                    alt="Logo Sekolah 1" 
+                                    className="w-20 h-20 object-contain"
+                                    onError={(e) => { e.target.style.display='none'; }}
+                                />
+                                {/* Logo Sekolah 2 (Kanan) */}
+                                <img 
+                                    src="https://drive.google.com/thumbnail?id=1bDvVllIBySPtn06A9sqyO-JzzbATVyyU&sz=w200" 
+                                    alt="Logo Sekolah 2" 
+                                    className="w-20 h-20 object-contain"
+                                    onError={(e) => { e.target.style.display='none'; }}
+                                />
+                            </div>
+                            <h1 className="text-2xl font-bold text-slate-800">Selamat Datang</h1>
+                        </div>
+
+                        <div className="flex bg-slate-100 p-1 rounded-lg mb-6">
+                            {['student', 'parent', 'teacher'].map(r => (
+                                <button
+                                    key={r}
+                                    onClick={() => setRole(r)}
+                                    className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
+                                        role === r ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                                    }`}
+                                >
+                                    {r === 'student' ? 'Murid' : r === 'parent' ? 'Ortu' : 'Guru'}
+                                </button>
+                            ))}
+                        </div>
+
+                        <div className="space-y-4">
+                            {role === 'teacher' ? (
+                                <div className="space-y-3">
+                                    <div>
+                                        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Username</label>
+                                        <input 
+                                            type="text" 
+                                            value={username}
+                                            onChange={(e) => setUsername(e.target.value)}
+                                            className="w-full border rounded-lg p-2 text-sm outline-none focus:border-blue-500"
+                                            placeholder="Masukkan username wali kelas"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Password</label>
+                                        <input 
+                                            type="password" 
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
+                                            className="w-full border rounded-lg p-2 text-sm outline-none focus:border-blue-500"
+                                            placeholder="Masukkan password"
+                                        />
+                                    </div>
+                                    
+                                    {loginError && (
+                                        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded relative text-sm text-center" role="alert">
+                                            <span className="block sm:inline">{loginError}</span>
+                                        </div>
+                                    )}
+
+                                    <button 
+                                        onClick={handleTeacherLogin}
+                                        className="w-full bg-blue-600 text-white font-bold py-3 rounded-xl shadow-lg shadow-blue-200 active:scale-95 transition-all mt-2"
+                                    >
+                                        Masuk sebagai Guru
+                                    </button>
+                                </div>
+                            ) : (
+                                <>
+                                    {/* DROPDOWN PILIH TINGKAT KELAS (BARU) */}
+                                    <div>
+                                        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Pilih Tingkat Kelas</label>
+                                        <div className="relative">
+                                            <select
+                                                value={selectedGrade}
+                                                onChange={(e) => setSelectedGrade(e.target.value)}
+                                                className="w-full appearance-none bg-white border border-slate-300 text-slate-700 py-3 px-4 pr-8 rounded-lg leading-tight focus:outline-none focus:bg-white focus:border-blue-500 font-bold"
+                                            >
+                                                <option value="7">Kelas 7</option>
+                                                <option value="8">Kelas 8</option>
+                                                <option value="9">Kelas 9</option>
+                                            </select>
+                                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-700">
+                                                <Icons.ChevronDown />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* DAFTAR TOMBOL KELAS (DIFILTER SESUAI TINGKAT) */}
+                                    <div>
+                                        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Pilih Kelas</label>
+                                        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                                            {classOptions.length > 0 ? (
+                                                classOptions.map(c => (
+                                                    <button
+                                                        key={c}
+                                                        onClick={() => setSelectedClass(c)}
+                                                        className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap border transition-colors ${
+                                                            selectedClass === c 
+                                                            ? 'bg-blue-600 text-white border-blue-600 shadow-md' 
+                                                            : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300'
+                                                        }`}
+                                                    >
+                                                        {c}
+                                                    </button>
+                                                ))
+                                            ) : (
+                                                <p className="text-sm text-slate-400 italic">Tidak ada kelas untuk tingkat ini.</p>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                                            {role === 'student' ? 'Pilih Namamu' : 'Pilih Nama Anak'}
+                                        </label>
+                                        <div className="max-h-60 overflow-y-auto space-y-2 border rounded-xl p-2 bg-slate-50 student-list">
+                                            {filteredStudents.length > 0 ? (
+                                                filteredStudents.map(s => (
+                                                    <button
+                                                        key={s.id}
+                                                        onClick={() => handleLogin(role === 'student' ? s.id : `parent_${s.id}`, role === 'student' ? s.name : `Ortu ${s.name}`, role, s.classId)}
+                                                        className="w-full flex items-center p-3 bg-white border rounded-lg hover:border-blue-500 hover:shadow-sm transition-all text-left"
+                                                    >
+                                                        <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center mr-3 text-xs font-bold text-slate-500">
+                                                            {s.name.substring(0, 1)}
+                                                        </div>
+                                                        <span className="text-sm font-medium text-slate-700">{s.name}</span>
+                                                    </button>
+                                                ))
+                                            ) : (
+                                                <p className="text-center text-sm text-slate-400 py-4">Tidak ada siswa di kelas ini.</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    </Card>
+                </div>
+            );
+        }
+
+        // --- MAIN APP ---
+        // ... (Main App, ParentDashboard, StudentDashboard tetap sama) ...
+        function App() {
+            // Safety Check: Render SetupInstruction if config is missing
+            if (!isConfigValid) {
+                return <SetupInstruction />;
+            }
+
+            const [user, setUser] = React.useState(null);
+            const [appUser, setAppUser] = React.useState(null);
+            const [loading, setLoading] = React.useState(true);
+
+            React.useEffect(() => {
+                const initAuth = async () => {
+                    // Logic: Gunakan token Canvas jika tersedia, jika tidak (di Google Sites) gunakan Anonymous
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        try {
+                            await auth.signInWithCustomToken(__initial_auth_token);
+                        } catch (e) {
+                            console.warn("Auth token gagal, mencoba anonymous...", e);
+                            await auth.signInAnonymously();
+                        }
+                    } else {
+                        await auth.signInAnonymously();
+                    }
+                };
+                
+                initAuth().catch(e => console.error("Login Error:", e));
+
+                const unsubscribe = auth.onAuthStateChanged((u) => {
+                    setUser(u);
+                    setLoading(false);
+                });
+                return () => unsubscribe();
+            }, []);
+
+            if (loading) return <div className="h-screen flex items-center justify-center">Memuat...</div>;
+            if (!appUser) return <LoginScreen onLogin={setAppUser} />;
+
+            return (
+                <div className="min-h-screen font-sans text-slate-800 pb-20 bg-slate-50">
+                    <header className="bg-white border-b sticky top-0 z-50">
+                        <div className="w-full px-4 h-16 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/9/9c/Logo_of_Ministry_of_Education_and_Culture_of_Republic_of_Indonesia.svg/480px-Logo_of_Ministry_of_Education_and_Culture_of_Republic_of_Indonesia.svg.png" className="w-8 h-8 object-contain" />
+                                <div>
+                                    <h1 className="font-bold text-sm">Jurnal 7 KAIH</h1>
+                                </div>
+                            </div>
+                            <button onClick={() => setAppUser(null)} className="p-2 text-slate-500"><Icons.LogOut/></button>
+                        </div>
+                    </header>
+                    <main className="w-full p-4">
+                        {appUser.role === 'student' && <StudentDashboard user={appUser} firebaseUser={user} />}
+                        {appUser.role === 'teacher' && <TeacherDashboard user={appUser} firebaseUser={user} />}
+                        {/* Dashboard lain bisa ditambahkan di sini dengan logika yang sama */}
+                        {appUser.role === 'parent' && <ParentDashboard user={appUser} firebaseUser={user} />}
+                    </main>
+                </div>
+            );
+        }
+
+        // Parent Dashboard Component
+        function ParentDashboard({ user, firebaseUser }) {
+             const [date, setDate] = React.useState(new Date().toISOString().split('T')[0]);
+             const [childLog, setChildLog] = React.useState(null);
+             
+             React.useEffect(() => {
+                if (!firebaseUser || !user.childId) return;
+                const docRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection(`logs_${user.childId}`).doc(date);
+                
+                docRef.onSnapshot(doc => {
+                    if (doc.exists) {
+                        setChildLog(doc.data());
+                    } else {
+                        setChildLog(null);
+                    }
+                });
+             }, [firebaseUser, user.childId, date]);
+
+             const handleSaveValidation = async (rating) => {
+                 if (!user.childId) return;
+
+                 // --- LOGIKA BARU: Cek apakah sudah divalidasi sebelumnya ---
+                 if (childLog && childLog.parentValidation) {
+                     alert("Maaf, Validasi Orang Tua hanya dapat dilakukan satu kali dalam sehari untuk tanggal ini.");
+                     return;
+                 }
+                 // -----------------------------------------------------------
+
+                 const stickerInfo = VALIDATION_OPTIONS.find(v => v.value === rating);
+                 
+                 const dataToUpdate = {
+                     parentValidation: {
+                         rating: rating,
+                         sticker: stickerInfo.icon,
+                         timestamp: new Date().toISOString(),
+                         parentName: user.name
+                     }
+                 };
+
+                 await db.collection('artifacts').doc(appId).collection('public').doc('data').collection(`logs_${user.childId}`).doc(date).set(dataToUpdate, { merge: true });
+                 
+                 // Simpan ke Google Sheet (Update Row)
+                 if (GOOGLE_SHEET_SCRIPT_URL && childLog) {
+                     const sheetPayload = {
+                         role: 'parent',
+                         date: date,
+                         studentName: childLog.studentName,
+                         classId: childLog.classId,
+                         parentValidation: dataToUpdate.parentValidation
+                     };
+                     
+                     // PERBAIKAN: Menggunakan text/plain agar tidak terkena blokir CORS
+                     fetch(GOOGLE_SHEET_SCRIPT_URL, {
+                         method: 'POST',
+                         mode: 'no-cors',
+                         headers: { 'Content-Type': 'text/plain' },
+                         body: JSON.stringify(sheetPayload)
+                     }).catch(e => console.error("Sheet Error:", e));
+                 }
+
+                 alert(`Validasi Orang Tua: ${stickerInfo.label} diberikan!`);
+             };
+
+             return (
+                <div className="space-y-6">
+                  <div className="bg-purple-600 rounded-2xl p-6 text-white shadow-lg">
+                    <h2 className="text-xl font-bold">Portal Orang Tua</h2>
+                    <p className="text-purple-100 text-sm">Memantau: {user.name.replace('Ortu ', '')}</p>
+                  </div>
+
+                  {/* Date Picker */}
+                  <div className="flex items-center justify-between bg-white p-3 rounded-xl shadow-sm border">
+                        <div className="flex items-center gap-2">
+                            <Icons.Calendar className="text-slate-500"/>
+                            <span className="text-sm font-semibold text-slate-600">Tanggal:</span>
+                        </div>
+                        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="outline-none font-medium text-slate-700"/>
+                  </div>
+
+                  {!childLog ? (
+                      <div className="text-center py-12 bg-white rounded-xl border border-dashed border-slate-300">
+                          <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3 text-slate-400">
+                              <Icons.BookOpen />
+                          </div>
+                          <p className="text-slate-500 font-medium">Belum ada jurnal</p>
+                          <p className="text-xs text-slate-400">Anak belum mengisi jurnal pada tanggal ini.</p>
+                      </div>
+                  ) : (
+                      <>
+                          <Card className="p-4 bg-white">
+                              <div className="flex items-center justify-between mb-4 border-b pb-2">
+                                <h3 className="font-bold text-lg text-slate-800">Isian Jurnal</h3>
+                                <span className="font-bold text-blue-600">{childLog.completionPercentage}%</span>
+                              </div>
+                              <HabitList initialData={childLog} isReadOnly={true} />
+                          </Card>
+
+                          <Card className="p-4 border-t-4 border-purple-500 bg-white">
+                              {/* --- MODIFIKASI TAMPILAN NOTIFIKASI VALIDASI --- */}
+                              {childLog.parentValidation ? (
+                                  <div className="mb-4 bg-green-50 p-3 rounded-lg border border-green-200 text-center animate-fade-in-up">
+                                      <p className="text-sm font-bold text-green-800 mb-1">Terima Kasih!</p>
+                                      <p className="text-xs text-green-700">Anda telah memberikan stiker:</p>
+                                      <div className="text-4xl my-2">{childLog.parentValidation.sticker}</div>
+                                      <p className="text-[10px] text-slate-500 italic mt-2 border-t border-green-200 pt-2">⚠️ Validasi hanya dapat dilakukan 1 kali dalam sehari.</p>
+                                  </div>
+                              ) : (
+                                  <div className="text-center mb-4">
+                                      <h3 className="font-bold text-slate-800">Validasi & Stiker</h3>
+                                      <p className="text-xs text-slate-500">Berikan apresiasi untuk anak hari ini.</p>
+                                  </div>
+                              )}
+
+                              <div className="grid grid-cols-2 gap-3">
+                                  {VALIDATION_OPTIONS.map((opt) => (
+                                      <button
+                                          key={opt.value}
+                                          onClick={() => handleSaveValidation(opt.value)}
+                                          disabled={!!childLog.parentValidation} 
+                                          className={`p-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all active:scale-95 ${
+                                              childLog.parentValidation?.rating === opt.value
+                                              ? 'border-purple-500 bg-purple-50 shadow-md ring-2 ring-purple-200 opacity-100'
+                                              : childLog.parentValidation 
+                                                ? 'border-slate-100 bg-slate-50 opacity-50 cursor-not-allowed' // Tampilan disabled
+                                                : 'border-slate-100 bg-white hover:border-purple-200'
+                                          }`}
+                                      >
+                                          <span className="text-2xl">{opt.icon}</span>
+                                          <span className="text-xs font-bold text-slate-700">{opt.label}</span>
+                                      </button>
+                                  ))}
+                              </div>
+                          </Card>
+                      </>
+                  )}
+                </div>
+             );
+        }
+
+        // Student Dashboard Component
+        function StudentDashboard({ user, firebaseUser }) {
+             const [date, setDate] = React.useState(new Date().toISOString().split('T')[0]);
+             const [logData, setLogData] = React.useState({});
+             const [isSaving, setIsSaving] = React.useState(false);
+             const [isAlreadyFilled, setIsAlreadyFilled] = React.useState(false);
+
+             React.useEffect(() => {
+                if (!firebaseUser) return;
+                // Use safe paths for Firestore
+                const docRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection(`logs_${user.id}`);
+                
+                // Tambahkan error handler untuk mendeteksi permission denied
+                docRef.onSnapshot(
+                    snapshot => {
+                      const logs = {};
+                      snapshot.forEach(doc => logs[doc.id] = doc.data());
+                      setLogData(logs);
+                      
+                      // Check if today is filled
+                      if (logs[date]) {
+                          setIsAlreadyFilled(true);
+                      } else {
+                          setIsAlreadyFilled(false);
+                      }
+                    },
+                    error => {
+                        console.error("Firestore Error:", error);
+                        if (error.code === 'permission-denied') {
+                            alert("Izin Ditolak! \n\nJika ini proyek Anda sendiri, pastikan 'Firestore Security Rules' diatur ke 'Test Mode' (allow read, write: if true;).");
+                        }
+                    }
+                );
+             }, [firebaseUser, date]); // Add date to dependency so it re-checks when date changes
+
+             const handleSave = async (habitData) => {
+                 setIsSaving(true);
+                 let points = 0;
+                 Object.keys(habitData).forEach(k => { if(habitData[k].status) points++; });
+                 const percentage = Math.round((points/7)*100);
+
+                 const dataToSave = {
+                     role: 'student',
+                     ...habitData, 
+                     date, 
+                     studentId: user.id, 
+                     studentName: user.name, 
+                     classId: user.classId, 
+                     completionPercentage: percentage
+                 };
+
+                 try {
+                     // 1. Simpan ke Firebase (Untuk Tampilan App)
+                     await db.collection('artifacts').doc(appId).collection('public').doc('data').collection(`logs_${user.id}`).doc(date).set(dataToSave, { merge: true });
+                     
+                     // 2. Simpan ke Google Sheet (Untuk Rekap Excel)
+                     if (GOOGLE_SHEET_SCRIPT_URL) {
+                         // PERBAIKAN: Menggunakan text/plain agar data diterima Google Apps Script dengan benar dalam mode no-cors
+                         await fetch(GOOGLE_SHEET_SCRIPT_URL, {
+                             method: 'POST',
+                             mode: 'no-cors', 
+                             headers: {
+                                 'Content-Type': 'text/plain',
+                             },
+                             body: JSON.stringify(dataToSave)
+                         });
+                         console.log("Data dikirim ke Google Sheet");
+                     } else {
+                         console.warn("URL Google Sheet belum diisi di kode.");
+                     }
+
+                     alert("Jurnal berhasil disimpan ke Database & Google Sheet!");
+                 } catch (error) {
+                     console.error("Save Error:", error);
+                     alert("Gagal menyimpan data: " + error.message);
+                 } finally {
+                     setIsSaving(false);
+                 }
+             };
+
+             return (
+                 <div className="space-y-6">
+                    <div className="bg-blue-600 rounded-2xl p-6 text-white shadow-lg">
+                        <h2 className="text-2xl font-bold">Halo, {user.name}!</h2>
+                        <p className="text-blue-100 text-sm">Ayo isi jurnal hari ini.</p>
+                    </div>
+                    <div className="flex items-center justify-between bg-white p-3 rounded-xl shadow-sm border">
+                        <Icons.Calendar className="text-slate-500"/>
+                        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="outline-none"/>
+                    </div>
+                    
+                    {/* Tampilkan pesan jika sudah terisi */}
+                    {isAlreadyFilled && (
+                        <div className="bg-green-100 border border-green-200 text-green-800 p-4 rounded-xl text-center">
+                            <p className="font-bold">✅ Jurnal hari ini sudah terisi.</p>
+                            <p className="text-xs mt-1">Data sudah tersimpan dan tidak dapat diubah lagi hari ini.</p>
+                        </div>
+                    )}
+
+                    <HabitList 
+                        initialData={logData[date] || {}} 
+                        onSave={handleSave} 
+                        isReadOnly={isAlreadyFilled} // Jadikan read-only jika sudah terisi
+                    />
+                    
+                    {isSaving && <p className="text-center text-xs text-blue-600 animate-pulse">Sedang menyimpan...</p>}
+                 </div>
+             )
+        }
+
+        // Teacher Dashboard Component (Updated)
+        function TeacherDashboard({ user, firebaseUser }) {
+             const [date, setDate] = React.useState(new Date().toISOString().split('T')[0]);
+             const [classLogs, setClassLogs] = React.useState([]);
+             const [selectedStudentForValidation, setSelectedStudentForValidation] = React.useState(null);
+             const [isLoading, setIsLoading] = React.useState(false);
+             
+             // State for Recap
+             const [isRecapMode, setIsRecapMode] = React.useState(false);
+             const [recapStartDate, setRecapStartDate] = React.useState(new Date().toISOString().split('T')[0]);
+             const [recapEndDate, setRecapEndDate] = React.useState(new Date().toISOString().split('T')[0]);
+             const [recapData, setRecapData] = React.useState([]);
+             const [isRecapLoading, setIsRecapLoading] = React.useState(false);
+
+             // UPDATE: Menggunakan .includes karena user.classId bisa string panjang seperti "7A, 7B, 7C"
+             const myStudents = React.useMemo(() => {
+                return ALL_STUDENTS.filter(s => user.classId.includes(s.classId));
+             }, [user.classId]);
+             
+             // Define fetchLogs function
+             const fetchLogs = React.useCallback(async () => {
+                if (!firebaseUser) return;
+                setIsLoading(true);
+                const logs = [];
+                for (const student of myStudents) {
+                    const docRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection(`logs_${student.id}`).doc(date);
+                    try {
+                        const doc = await docRef.get();
+                        if (doc.exists) {
+                            logs.push({ ...doc.data(), studentName: student.name, studentId: student.id });
+                        } else {
+                            logs.push({ studentName: student.name, studentId: student.id, notFilled: true });
+                        }
+                    } catch (e) { console.error(e); }
+                }
+                setClassLogs(logs);
+                setIsLoading(false);
+             }, [firebaseUser, myStudents, date]);
+
+             // Initial fetch
+             React.useEffect(() => {
+                fetchLogs();
+             }, [fetchLogs]);
+
+             const handleSaveValidation = async (rating) => {
+                 if (!selectedStudentForValidation) return;
+                 
+                 const studentId = selectedStudentForValidation.studentId;
+                 const stickerInfo = VALIDATION_OPTIONS.find(v => v.value === rating);
+                 
+                 const dataToUpdate = {
+                     teacherValidation: {
+                         rating: rating,
+                         sticker: stickerInfo.icon,
+                         timestamp: new Date().toISOString(),
+                         teacherName: user.name
+                     }
+                 };
+
+                 await db.collection('artifacts').doc(appId).collection('public').doc('data').collection(`logs_${studentId}`).doc(date).set(dataToUpdate, { merge: true });
+                 
+                 // Simpan ke Google Sheet (Update Row)
+                 if (GOOGLE_SHEET_SCRIPT_URL) {
+                     const sheetPayload = {
+                         role: 'teacher',
+                         date: date,
+                         studentName: selectedStudentForValidation.studentName,
+                         classId: selectedStudentForValidation.classId, // Use specific student classID
+                         teacherValidation: dataToUpdate.teacherValidation
+                     };
+                     
+                     // PERBAIKAN: Menggunakan text/plain agar tidak terkena blokir CORS
+                     fetch(GOOGLE_SHEET_SCRIPT_URL, {
+                         method: 'POST',
+                         mode: 'no-cors',
+                         headers: { 'Content-Type': 'text/plain' },
+                         body: JSON.stringify(sheetPayload)
+                     }).catch(e => console.error("Sheet Error:", e));
+                 }
+
+                 // Update local state to reflect change immediately
+                 setClassLogs(prev => prev.map(log => 
+                    log.studentId === studentId 
+                    ? { ...log, teacherValidation: { rating: rating, sticker: stickerInfo.icon } }
+                    : log
+                 ));
+                 
+                 setSelectedStudentForValidation(null);
+                 alert(`Validasi ${stickerInfo.label} diberikan!`);
+             };
+
+             // --- RECAP LOGIC ---
+             const handleGenerateRecap = async () => {
+                 if (!recapStartDate || !recapEndDate) {
+                     alert("Harap pilih tanggal mulai dan akhir.");
+                     return;
+                 }
+                 setIsRecapLoading(true);
+                 setRecapData([]);
+
+                 const allRecapData = [];
+
+                 // Loop through each student in teacher's classes
+                 for (const student of myStudents) {
+                     try {
+                         const querySnapshot = await db.collection('artifacts').doc(appId).collection('public').doc('data')
+                             .collection(`logs_${student.id}`)
+                             .where(firebase.firestore.FieldPath.documentId(), '>=', recapStartDate)
+                             .where(firebase.firestore.FieldPath.documentId(), '<=', recapEndDate)
+                             .get();
+
+                         querySnapshot.forEach(doc => {
+                             const data = doc.data();
+                             allRecapData.push({
+                                 date: doc.id,
+                                 studentName: student.name,
+                                 classId: student.classId,
+                                 score: data.completionPercentage || 0,
+                                 validated: data.teacherValidation ? 'Sudah' : 'Belum'
+                             });
+                         });
+                     } catch (e) {
+                         console.error("Recap Error:", e);
+                     }
+                 }
+                 
+                 // Sort by Date then Name
+                 allRecapData.sort((a, b) => {
+                     if (a.date !== b.date) return a.date.localeCompare(b.date);
+                     return a.studentName.localeCompare(b.studentName);
+                 });
+
+                 setRecapData(allRecapData);
+                 setIsRecapLoading(false);
+             };
+
+             const downloadRecapCSV = () => {
+                 if (recapData.length === 0) return;
+
+                 const headers = ["Tanggal", "Nama Siswa", "Kelas", "Skor (%)", "Validasi Guru"];
+                 const rows = recapData.map(item => [
+                     item.date,
+                     `"${item.studentName}"`, // Quote name to handle commas
+                     item.classId,
+                     item.score,
+                     item.validated
+                 ]);
+
+                 const csvContent = "data:text/csv;charset=utf-8," 
+                     + headers.join(",") + "\n" 
+                     + rows.map(e => e.join(",")).join("\n");
+
+                 const encodedUri = encodeURI(csvContent);
+                 const link = document.createElement("a");
+                 link.setAttribute("href", encodedUri);
+                 link.setAttribute("download", `rekap_jurnal_${recapStartDate}_sd_${recapEndDate}.csv`);
+                 document.body.appendChild(link);
+                 link.click();
+                 document.body.removeChild(link);
+             };
+
+             if (isRecapMode) {
+                 return (
+                     <div className="space-y-6">
+                         <div className="bg-slate-800 rounded-2xl p-6 text-white shadow-lg flex justify-between items-center">
+                             <div>
+                                 <h2 className="text-xl font-bold">Rekapitulasi Jurnal</h2>
+                                 <p className="text-slate-300 text-sm">Download data siswa ke Excel</p>
+                             </div>
+                             <button onClick={() => setIsRecapMode(false)} className="text-sm bg-slate-600 px-3 py-1 rounded hover:bg-slate-500">Kembali</button>
+                         </div>
+
+                         <Card className="p-4 space-y-4">
+                             <div className="grid grid-cols-2 gap-4">
+                                 <div>
+                                     <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Mulai Tanggal</label>
+                                     <input type="date" value={recapStartDate} onChange={(e) => setRecapStartDate(e.target.value)} className="w-full border rounded p-2 text-sm" />
+                                 </div>
+                                 <div>
+                                     <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Sampai Tanggal</label>
+                                     <input type="date" value={recapEndDate} onChange={(e) => setRecapEndDate(e.target.value)} className="w-full border rounded p-2 text-sm" />
+                                 </div>
+                             </div>
+                             
+                             <div className="flex gap-2">
+                                 <button 
+                                     onClick={handleGenerateRecap}
+                                     disabled={isRecapLoading}
+                                     className="flex-1 bg-blue-600 text-white font-bold py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-blue-700"
+                                 >
+                                     {isRecapLoading ? "Memproses..." : <><Icons.Refresh size={16}/> Tampilkan Data</>}
+                                 </button>
+                                 
+                                 {recapData.length > 0 && (
+                                     <button 
+                                         onClick={downloadRecapCSV}
+                                         className="flex-1 bg-green-600 text-white font-bold py-2 rounded-lg flex items-center justify-center gap-2 hover:bg-green-700"
+                                     >
+                                         <Icons.Download size={16}/> Export Excel
+                                     </button>
+                                 )}
+                             </div>
+                         </Card>
+
+                         {recapData.length > 0 && (
+                             <Card className="overflow-hidden">
+                                 <div className="bg-slate-100 px-4 py-3 border-b">
+                                     <h3 className="font-bold text-slate-700">Hasil Rekap ({recapData.length} data)</h3>
+                                 </div>
+                                 <div className="max-h-96 overflow-y-auto">
+                                     <table className="w-full text-sm text-left">
+                                         <thead className="bg-slate-50 text-slate-500 font-semibold sticky top-0">
+                                             <tr>
+                                                 <th className="p-3">Tanggal</th>
+                                                 <th className="p-3">Nama</th>
+                                                 <th className="p-3">Kls</th>
+                                                 <th className="p-3 text-center">Skor</th>
+                                             </tr>
+                                         </thead>
+                                         <tbody className="divide-y">
+                                             {recapData.map((row, idx) => (
+                                                 <tr key={idx} className="hover:bg-slate-50">
+                                                     <td className="p-3 whitespace-nowrap">{row.date}</td>
+                                                     <td className="p-3">{row.studentName}</td>
+                                                     <td className="p-3">{row.classId}</td>
+                                                     <td className="p-3 text-center font-bold text-blue-600">{row.score}%</td>
+                                                 </tr>
+                                             ))}
+                                         </tbody>
+                                     </table>
+                                 </div>
+                             </Card>
+                         )}
+                     </div>
+                 );
+             }
+
+             return (
+                <div className="space-y-6">
+                  <div className="bg-slate-800 rounded-2xl p-6 text-white shadow-lg">
+                    <h2 className="text-xl font-bold">Halo, Bapak/Ibu Guru</h2>
+                    <p className="text-slate-300 text-sm">Kelas Ampuan: {user.classId}</p>
+                  </div>
+
+                  <div className="flex gap-2">
+                      <div className="flex-1 flex items-center justify-between bg-white p-3 rounded-xl shadow-sm border">
+                            <div className="flex items-center gap-2">
+                                <Icons.Calendar className="text-slate-500"/>
+                                <span className="text-sm font-semibold text-slate-600">Tanggal:</span>
+                            </div>
+                            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="outline-none font-medium text-slate-700 max-w-[130px]"/>
+                      </div>
+                      <button 
+                        onClick={() => setIsRecapMode(true)}
+                        className="bg-green-600 text-white p-3 rounded-xl shadow-sm font-bold flex items-center gap-2 hover:bg-green-700 transition-colors"
+                        title="Rekap Data"
+                      >
+                          <Icons.FileText /> <span className="hidden sm:inline">Rekap</span>
+                      </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Card className="p-4">
+                        <h3 className="text-sm font-semibold text-slate-500 uppercase mb-2">Total Siswa</h3>
+                        <p className="text-3xl font-bold text-slate-800">{myStudents.length}</p>
+                    </Card>
+                    <Card className="p-4">
+                        <h3 className="text-sm font-semibold text-slate-500 uppercase mb-2">Mengisi Hari Ini</h3>
+                        <p className="text-3xl font-bold text-green-600">
+                            {classLogs.filter(l => !l.notFilled).length}
+                            <span className="text-sm text-slate-400 font-normal ml-2">/ {myStudents.length}</span>
+                        </p>
+                    </Card>
+                  </div>
+
+                  <Card className="overflow-hidden">
+                    <div className="bg-slate-100 px-4 py-3 border-b flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                            <h3 className="font-bold text-slate-700">Daftar Siswa</h3>
+                            <button 
+                                onClick={fetchLogs} 
+                                disabled={isLoading}
+                                className="p-1 hover:bg-slate-200 rounded-full transition-colors text-blue-600"
+                                title="Segarkan Data"
+                            >
+                                <span className={isLoading ? "animate-spin block" : "block"}>
+                                    <Icons.Refresh />
+                                </span>
+                            </button>
+                        </div>
+                        <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">{new Date(date).toLocaleDateString('id-ID')}</span>
+                    </div>
+                    <div className="divide-y max-h-96 overflow-y-auto relative">
+                        {isLoading && (
+                            <div className="absolute inset-0 bg-white/50 z-10 flex items-center justify-center">
+                                <span className="text-sm font-semibold text-slate-500 bg-white px-3 py-1 rounded-full shadow-sm">Memuat...</span>
+                            </div>
+                        )}
+                        {classLogs.map((log, idx) => (
+                            <div 
+                                key={idx} 
+                                onClick={() => !log.notFilled && setSelectedStudentForValidation(log)}
+                                className={`p-4 flex items-center justify-between transition-colors ${!log.notFilled ? 'cursor-pointer hover:bg-blue-50' : 'opacity-60'}`}
+                            >
+                                <div>
+                                    <p className="font-medium text-slate-800">{log.studentName} <span className="text-xs text-slate-400">({myStudents.find(s => s.id === log.studentId)?.classId})</span></p>
+                                    <div className="flex gap-2 mt-1 items-center">
+                                        {!log.notFilled ? (
+                                            <>
+                                                {log.teacherValidation ? (
+                                                    <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full flex items-center gap-1 border border-green-200">
+                                                        {log.teacherValidation.sticker} Terverifikasi
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full border border-yellow-200">
+                                                        Perlu Validasi
+                                                    </span>
+                                                )}
+                                            </>
+                                        ) : (
+                                            <span className="text-xs text-red-400 italic">Belum mengisi jurnal</span>
+                                        )}
+                                    </div>
+                                </div>
+                                <div>
+                                     {!log.notFilled && (
+                                        <div className="text-right">
+                                            <span className="block font-bold text-lg text-blue-600">{log.completionPercentage}%</span>
+                                            <Icons.ChevronDown className="ml-auto text-slate-400 w-4 h-4"/>
+                                        </div>
+                                     )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                  </Card>
+
+                  {/* Validation Modal */}
+                  {selectedStudentForValidation && (
+                      <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-[100] p-4 animate-fade-in-up">
+                          <div className="bg-white w-full max-w-lg rounded-2xl max-h-[90vh] flex flex-col shadow-2xl">
+                              <div className="p-4 border-b flex items-center justify-between bg-slate-50 rounded-t-2xl">
+                                  <div>
+                                      <h3 className="font-bold text-lg text-slate-800">{selectedStudentForValidation.studentName}</h3>
+                                      <p className="text-xs text-slate-500">Jurnal Tanggal {date}</p>
+                                  </div>
+                                  <button onClick={() => setSelectedStudentForValidation(null)} className="p-2 hover:bg-slate-200 rounded-full">
+                                      <Icons.Close />
+                                  </button>
+                              </div>
+                              
+                              <div className="p-4 overflow-y-auto flex-1">
+                                  <HabitList initialData={selectedStudentForValidation} isReadOnly={true} />
+                              </div>
+
+                              <div className="p-4 border-t bg-slate-50 rounded-b-2xl">
+                                  <p className="text-sm font-bold text-slate-700 mb-3 text-center">Berikan Validasi & Stiker:</p>
+                                  <div className="grid grid-cols-2 gap-3">
+                                      {VALIDATION_OPTIONS.map((opt) => (
+                                          <button
+                                              key={opt.value}
+                                              onClick={() => handleSaveValidation(opt.value)}
+                                              className={`p-3 rounded-xl border-2 flex flex-col items-center gap-1 transition-all active:scale-95 ${
+                                                  selectedStudentForValidation.teacherValidation?.rating === opt.value
+                                                  ? 'border-blue-500 bg-blue-50 shadow-md ring-2 ring-blue-200'
+                                                  : 'border-slate-100 bg-white hover:border-blue-200'
+                                              }`}
+                                          >
+                                              <span className="text-2xl">{opt.icon}</span>
+                                              <span className="text-xs font-bold text-slate-700">{opt.label}</span>
+                                          </button>
+                                      ))}
+                                  </div>
+                              </div>
+                          </div>
+                      </div>
+                  )}
+                </div>
+             );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
