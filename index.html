@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Jurnal KAIH - SMPN 7 Dedai</title>
+    <title>Jurnal KAIH - SMP Negeri 12 Madiun</title>
     
     <!-- 1. Pustaka React & Babel -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -91,7 +91,7 @@
         }
 
         let auth, db;
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'smpn7-dedai';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'smpnegeri12-madiun';
         
         // --- KONFIGURASI GOOGLE SHEET ---
         const GOOGLE_SHEET_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbx2iHHPbITCa3SOGDCPmPdM_w5Q9U3vfSPQ4r_n3HpeIN96631G3lHUhCgvdqlyPLZbpw/exec"; 
@@ -1206,7 +1206,10 @@
                                     onError={(e) => { e.target.style.display='none'; }}
                                 />
                             </div>
-                            <h1 className="text-2xl font-bold text-slate-800">Selamat Datang</h1>
+                            <h1 className="text-2xl font-bold text-slate-800">
+                                Jurnal KAIH
+                                <div className="text-xl mt-1">SMP Negeri 12 Madiun</div>
+                            </h1>
                         </div>
 
                         <div className="flex bg-slate-100 p-1 rounded-lg mb-6">
